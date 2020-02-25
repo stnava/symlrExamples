@@ -1,0 +1,150 @@
+set.seed( 1 )
+library( ANTsR )
+library( ggplot2 )
+rf<-usePkg('randomForest')
+bg<-usePkg('BGLR')
+mlFun <- lm
+mlFun <- randomForest
+data(mice)
+snps<-mice.X
+numericalpheno<-as.matrix( mice.pheno[,c(4,5,13,15) ] )
+numericalpheno<-residuals( lm( numericalpheno ~ as.factor(mice.pheno$Litter) ) )
+nfolds<-6
+train<-sample( rep( c(1:nfolds), 1800/nfolds ) )
+train<-( train <= 4 )
+# reset seed to allow exploration of initialization effects
+locseed = round( as.numeric( Sys.time()  ) )
+# locseed = 1582464720
+set.seed( locseed )
+inmats = list(
+  as.matrix(snps[train,]),
+  numericalpheno[train,] )
+nv = 2
+nits = 10
+if ( ! exists( "snpd" ) ) {
+  snpd<-sparseDecom2( inmatrix=inmats, nvecs=nv, sparseness=c( 0.5, -0.5 ),
+    its=3, ell1=0.1 , z=-1, verbose = F )
+  j = 3
+  traindf<-data.frame( bmi=numericalpheno[ train,j] ,
+     snpse=as.matrix( snps[train, ] ) %*% as.matrix( snpd$eig1 ) )
+  testdf <-data.frame( bmi=numericalpheno[!train,j] ,
+     snpse=as.matrix( snps[!train,] ) %*% as.matrix( snpd$eig1 ) )
+  myrf<-mlFun( bmi ~ . , data=traindf )
+  preddf<-predict(myrf, newdata=testdf )
+}
+print( cor.test(preddf, testdf$bmi ) )
+print(paste("Err",  mean(abs(preddf-testdf$bmi))  ) )
+
+inmats = list(
+  as.matrix(snps[train,]),
+  numericalpheno[train,] )
+
+
+# same thing with SyMLR
+regularizeSyMLR <- function( x, knn, fraction = 0.1, sigma = 10 ) {
+  if ( missing( knn ) ) {
+    knn = rep( NA, length( x ) )
+    for ( i in 1:length( x ) ) {
+      temp = round( fraction * ncol( x[[i]] ) )
+      if ( temp < 3 ) temp = 3
+      knn[i] = temp
+    }
+  }
+  slist = list()
+  for ( i in 1:length( x ) ) {
+    slist[[ i ]] = knnSmoothingMatrix( scale(data.matrix(x[[i]]),T,T), k = knn[i],
+      sigma = sigma[i]   )
+  }
+  return( slist )
+}
+predictSyMLR <- function( x, sym ) {
+  varx = rep( 0, length( x ) )
+  initialErrors = rep( 0, length( x ) )
+  finalErrors = rep( 0, length( x ) )
+  predictions = list()
+  for ( i in 1:length( x ) ) {
+    mdl = lm( x[[i]] ~ sym$u[[i]] )
+    predictions[[i]] = predict( mdl )
+    smdl = summary( mdl )
+    for ( j in 1:length( smdl ) )
+      varx[ i ] = varx[ i ] + smdl[[j]]$r.squared/ncol(x[[i]])
+    finalErrors[i] = norm( predictions[[i]] - x[[i]], "F")
+    initialErrors[i] = norm(  x[[i]], "F")
+  }
+  list( varx = varx, predictions = predictions,
+    initialErrors = initialErrors,
+    finalErrors = finalErrors  )
+}
+if ( ! exists("inmatsScl") ) {
+  inmatsScl = list()
+  for ( i in 1:length( inmats ) )
+    inmatsScl[[i]] = ( scale( inmats[[i]], T, T ) )
+  }
+if ( ! exists( "regs" ) ) {
+  regs = list() # regularizeSyMLR( inmats, fraction = 0.1, sigma = 3 )
+  regs[[2]] = diag(ncol(inmats[[2]]))
+  regs[[1]] = diag(ncol(inmats[[1]]))
+  }
+source("~/code/ANTsR/R/multiscaleSVDxpts.R")
+# if ( ! exists( "initu" ) )
+initu = # snpd$projections # init with cca
+  initializeSyMLR( inmatsScl, nv, jointReduction = T, uAlgorithm = 'ica' )
+source("~/code/ANTsR/R/multiscaleSVDxpts.R")
+vinit = NULL
+connex = list( c(2), c(1) ) # both cca and pca
+sResult = symlr(
+  inmatsScl,
+      regs,
+      iterations = 21,
+      sparsenessQuantiles = c(0.5, 0.5), # general purpose defaults
+      positivities =  c('positive','either'),
+      initialUMatrix = initu,
+      vmats = vinit,
+      verbose = 1,
+      orthogonalize = F,
+      lineSearchRange = c( -1, 1 ) * 1e1,
+      lineSearchTolerance = 1e-6,
+      mixAlg = 'ica',
+      energyType = 'cca',
+      connectors = connex,
+      constraint = 'none',
+      optimizationStyle = 'mixed',
+      randomSeed = locseed )
+# ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||
+svx = predictSyMLR( inmatsScl, sResult )
+print( svx[1] )
+print((svx$initialErrors/svx$finalErrors)^-1)
+layout( matrix( 1:4, nrow=1 ))
+plot( ts( sResult$energyPath[-c(1:2),1] ) )
+plot( ts( sResult$energyPath[-c(1:2),2] ) )
+straindf<-data.frame( bmi=numericalpheno[ train,3] ,
+   snpse=as.matrix( snps[train, ] ) %*% as.matrix( sResult$v[[1]] ) )
+stestdf <-data.frame( bmi=numericalpheno[!train,3] ,
+   snpse=as.matrix( snps[!train,] ) %*% as.matrix( sResult$v[[1]] ) )
+myrf<-mlFun( bmi ~ . , data=straindf[,] )
+spreddf <- predict( myrf, newdata=stestdf )
+print( cor.test( spreddf, testdf$bmi ) )
+print(paste("Err",  mean(abs(spreddf-testdf$bmi))  ) )
+plot( preddf, testdf$bmi, xlim=c(-8,8),ylim=c(-8,8))
+plot( spreddf, testdf$bmi, xlim=c(-8,8),ylim=c(-8,8))
+
+
+
+message("use RGCCA to compute the same type of representation")
+# see the RGCCA package vignette for more information on this
+library( RGCCA )
+cca.with.rgcca = rgcca(
+  A = inmats,
+  C = matrix(c(0, 1, 1, 0), 2, 2),
+  tau = c(0, 0), ncomp = c(2,2), verbose = T )
+scca = sgcca( A = inmats, C=matrix(c(0, 1, 1, 0), 2, 2), c1 = c(.5,.5), ncomp = c(2, 2),
+    scheme = "centroid", scale = TRUE, verbose = FALSE)
+wsol = cca.with.rgcca
+straindf<-data.frame( bmi=numericalpheno[ train,3] ,
+   snpse=as.matrix( snps[train, ] ) %*% as.matrix( wsol$a[[1]] ) )
+stestdf <-data.frame( bmi=numericalpheno[!train,3] ,
+   snpse=as.matrix( snps[!train,] ) %*% as.matrix( wsol$a[[1]] ) )
+myrf<-mlFun( bmi ~ . , data=straindf[,] )
+spreddf <- predict( myrf, newdata=stestdf )
+print( cor.test( spreddf, testdf$bmi ) )
+print(paste("RGCCA Err",  mean(abs(spreddf-testdf$bmi))  ) )

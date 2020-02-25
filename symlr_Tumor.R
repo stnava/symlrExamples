@@ -1,0 +1,85 @@
+set.seed( 1 )
+library( ANTsR )
+library( ggplot2 )
+library( RGCCA )
+rf<-usePkg('randomForest')
+bg<-usePkg('BGLR')
+mlFun <- lm
+mlFun <- randomForest
+# different data ....
+# The final dataset is organized in 3 blocks of variables defined for the 53
+# tumors: the first block X1 provides the expression of 15702 genes (GE).
+# The second block X2 contains the imbalances of 1229 segments (CGH)
+# of chromosomes. X3 is a block of dummy variables describing the categorical
+# variable location.
+# The 53 tumors are divided into 3 locations: supratentorial (HEMI),
+# central nuclei (MIDL), and brain stem (DIPG).
+
+require( gliomaData )
+data(ge_cgh_locIGR)
+A <- ge_cgh_locIGR$multiblocks
+Loc <- factor(ge_cgh_locIGR$y)
+levels(Loc) <- colnames(ge_cgh_locIGR$multiblocks$y)
+A[[3]] = A[[3]][, -3]
+# check dimensions of the blocks
+sapply(A, dim)
+C <- matrix(c(0,0,1,0,0,1,1,1,0),3,3)
+rgcca.glioma =
+  rgcca( A, C, tau = c(1, 1, 0),
+  ncomp = c(2, 2, 2),
+  scale = TRUE, scheme = "horst", verbose = F )
+
+C2 <- matrix(c(1,1,1,1),2,2)
+sgcca.glioma = sgcca(A[1:2], C2, c1 = c(.071,.2), ncomp = c(2, 2),
+  scheme = "centroid", scale = TRUE, verbose = FALSE)
+
+df1 = data.frame(Loc = Loc,
+  GE1 = sgcca.glioma$Y[[1]][, 1],
+  CGH1 = sgcca.glioma$Y[[2]][, 1])
+p1 <- ggplot(df1, aes(GE1, CGH1)) + geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  ggtitle("Factor plot (Glioma data)") + geom_text(aes(colour = Loc, label= rownames(df1)),
+  vjust=0,nudge_y = 0.03,size = 3 )+ theme(legend.position="bottom", legend.box = "horizontal",
+ legend.title = element_blank())
+p1
+regs=list()
+for ( i in 1:2 ) {
+  temp=cor( A[[i]])
+  temp[temp<0.2]=0
+  regs[[i]]=temp
+}
+sResult = symlr( A[1:2], smoothingMatrices=regs,
+  sparsenessQuantiles = c(0.5, 0.5, 0.5), # general purpose defaults
+  positivities =  c('either','either','either'),
+  initialUMatrix = 2,
+  mixAlg = 'ica',
+  energyType = 'regression', scale = T, verbose = T )
+row.names(sResult$u[[1]])=row.names(sgcca.glioma$Y[[1]])
+row.names(sResult$u[[2]])=row.names(sgcca.glioma$Y[[1]])
+# row.names(sResult$u[[3]])=row.names(sgcca.glioma$Y[[1]])
+temp1 = A[[1]] %*% sResult$v[[1]]
+temp2 = A[[2]] %*% sResult$v[[2]]
+row.names(temp1)=row.names(temp2)=row.names(sgcca.glioma$Y[[1]])
+df1 = data.frame(Loc = Loc,
+  GE1 = temp1[, 1],
+  CGH1 = temp2[, 1])
+p1 <- ggplot(df1, aes(GE1, CGH1)) + geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  ggtitle("Factor plot (Glioma data)") + geom_text(aes(colour = Loc, label= rownames(df1)),
+  vjust=0,nudge_y = 0.03,size = 3 )+ theme(legend.position="bottom", legend.box = "horizontal",
+ legend.title = element_blank())
+p1
+
+
+
+
+# another example, perhaps less interesting
+data(Russett)
+X_agric = as.matrix(Russett[,c("gini","farm","rent")])
+X_ind = as.matrix(Russett[,c("gnpr","labo")])
+X_polit = as.matrix(Russett[ , c("inst", "ecks", "death",
+"demostab", "dictator")])
+A = list(X_agric, X_ind, X_polit)
+# standardization
+A = lapply(A, function(x) scale2(x, bias = TRUE))
+# ....
