@@ -22,8 +22,7 @@ nfolds<-6
 train<-sample( rep( c(1:nfolds), 1800/nfolds ) )
 train<-( train <= 4 )
 # reset seed to allow exploration of initialization effects
-locseed = round( as.numeric( Sys.time()  ) )
-# locseed = 1582464720
+locseed = 1582667197 # round( as.numeric( Sys.time()  ) )
 set.seed( locseed )
 inmats = list(
   as.matrix(snps[train,]),
@@ -90,15 +89,14 @@ if ( ! exists("inmatsScl") ) {
     inmatsScl[[i]] = ( scale( inmats[[i]], T, T ) )
   }
 
-if ( ! exists( "regs" ) )
-  regs = regularizeSyMLR( inmats, fraction = 0.1, sigma = 3 )
-# regs[[2]] = diag(ncol(inmats[[2]]))
-# regs[[1]] = diag(ncol(inmats[[1]]))
+regs = list()
+regs[[2]] = diag(ncol(inmats[[2]]))
+regs[[1]] = diag(ncol(inmats[[1]]))
 # if ( ! exists( "initu" ) )
 initu = # snpd$projections # init with cca
   initializeSyMLR( inmatsScl, nv, jointReduction = T, uAlgorithm = 'random' )
 vinit = NULL
-connex = list( c(2), c(1) ) # both cca and pca
+connex = list( c(2), c(1,2) ) # both cca and pca
 sResult = symlr(
   inmatsScl,
       regs,
@@ -127,9 +125,8 @@ from SNPs.
 svx = predictSyMLR( inmatsScl, sResult )
 print( svx[1] )
 print((svx$initialErrors/svx$finalErrors)^-1)
-layout( matrix( 1:4, nrow=1 ))
-plot( ts( sResult$energyPath[-c(1:2),1] ) )
-plot( ts( sResult$energyPath[-c(1:2),2] ) )
+# layout( matrix( 1:4, nrow=1 ))
+plot( ts( sResult$totalEnergy ) )
 straindf<-data.frame( bmi=numericalpheno[ train,3] ,
    snpse=as.matrix( snps[train, ] ) %*% as.matrix( sResult$v[[1]] ) )
 stestdf <-data.frame( bmi=numericalpheno[!train,3] ,
@@ -151,7 +148,7 @@ library( RGCCA )
 cca.with.rgcca = rgcca(
   A = inmats,
   C = matrix(c(0, 1, 1, 0), 2, 2),
-  tau = c(0, 0), ncomp = c(2,2), verbose = T )
+  tau = c(0.1, 0.1), ncomp = c(2,2), verbose = FALSE )
 scca = sgcca( A = inmats, C=matrix(c(0, 1, 1, 0), 2, 2), c1 = c(.5,.5), ncomp = c(2, 2),
     scheme = "centroid", scale = TRUE, verbose = FALSE)
 wsol = cca.with.rgcca

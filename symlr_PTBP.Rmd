@@ -1,0 +1,556 @@
+---
+title: 'The Pediatric Template of Brain Perfusion: SyMLR'
+author: "Brian B. Avants et al."
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup,eval=TRUE,results='hide',warning=FALSE,echo=FALSE}
+# set this for your own compilation
+bd="./data/"
+set.seed(11)
+library(ggplot2)
+```
+
+## Basic Setup
+
+```{r dataio}
+library(ANTsR)
+library(visreg)
+neanatvecs=2
+thkmask=antsImageRead( paste(bd,"ptbp_mask_thickness.nii.gz",sep='') )
+qth=0.05
+mth='BH'
+demog=read.csv(paste(bd,"ptbp_summary_demographics.csv",sep='') )
+demog=demog[ , 1:19 ]
+```
+
+## Set up the formula
+
+```{r form}
+formulathkbase=" AgeAtScan * Sex + I(AgeAtScan^2)"
+formulathkbase=" PIQ + BV"
+formulathktest=" AgeAtScan * Sex + I(AgeAtScan^2)"
+voi="AgeAtScan"
+```
+
+## Generic version: Function
+
+```{r genericvox}
+voxandeanatstudy <- function( demog, imgmat, imgmask,
+                              formulabase, formulatest,
+                              voi,
+                              exclusionThresh,
+                              baddata,
+                              outprefix,
+                              nv )
+  {
+  imgrowmeans=rowMeans( imgmat )
+  wp = rep( FALSE, nrow( demog ) )
+  for ( sub in unique( demog$SubID ) ) # get unique subjects
+    {
+    ww=which( demog$SubID == sub )
+    ww=ww[ !is.na( imgrowmeans[ww] )  &
+             imgrowmeans[ww] > exclusionThresh ]
+    if ( length( ww ) > 0 ) wp[ ww[ 1 ] ] = TRUE
+  }
+ return( wp )
+#  if ( ! all( is.na(baddata) ) ) # FIXME
+#   wp[  which(wp==TRUE)[ baddata ] ]=FALSE # bad data
+  ilist=matrixToImages( imgmat[wp,], imgmask )
+#  for ( i in 1:length(ilist) ) ilist[[i]]=smoothImage( ilist[[i]], 2.0 )
+  mydf=data.frame(
+                 Sex=demog[wp,]$Sex,
+                 AgeAtScan=demog[wp,]$AgeAtScan,
+                 PIQ=demog[wp,]$Performance.IQ,
+                 VIQ=demog[wp,]$Verbal.IQ,
+                 BV=demog[wp,]$BV,
+                 Cortex=demog[wp,]$Cortex,
+                 LadderCom=demog[wp,]$Teen.Ladder.Community.Score,
+                 LadderSES=demog[wp,]$Teen.Ladder.SES.score,
+                 Income=demog[wp,]$Income )
+  for ( kk in 2:ncol(mydf) ) mydf[,kk]=antsrimpute( mydf[,kk] )
+  imgmat=imageListToMatrix( ilist, imgmask )
+  locform=formula( paste( "imgmat ~", formulabase ,"+", formulatest ) )
+  mdl=lm( locform, data=mydf )
+  voxlm=bigLMStats( mdl , 1.e-8 )
+  print(paste("begin low",outprefix) )
+  lowmat = scale( lowrankRowMatrix( imgmat , 10 ), scale=FALSE )
+  print(paste("begin eanat",outprefix) )
+  imgeanat=sparseDecom( lowmat , imgmask, nvecs=nv, smooth=0.0,
+    sparseness=0.05, cthresh=20000, mycoption=1, its=1 )
+  rm( lowmat )
+  print(paste("end eanat",outprefix) )
+  eproj=abs(  imgeanat$eig  )
+  eproj=( eproj/rowSums(eproj) )
+  imgproj = imgmat %*% t( eproj  )
+  mydf=data.frame( mydf, imgproj )
+  print( names(mydf) )
+  formbase=formula( paste( "imgproj ~", formulabase ) )
+  formtest=formula( paste( "imgproj ~", formulabase ,"+", formulatest ) )
+  mdl1=lm( formbase, data=mydf )
+  mdl2=lm( formtest, data=mydf )
+  eanatlm=bigLMStats( mdl2 , 1.e-6 )
+  eseg=eigSeg( mask=imgmask, matrixToImages( imgeanat$eig, imgmask), F  )
+  ofn=paste( outprefix, '_eseg.nii.gz', sep='' )
+  antsImageWrite( eseg , ofn )
+  anv=anova( mdl1, mdl2 )
+  return( list(mydf=mydf,
+               voxlm=voxlm,
+               eanatlm=eanatlm,
+               eseg=eseg,
+               imgproj=imgproj,
+               whichSubjects=wp,
+               eanat=imgeanat,
+               anv=anv) )
+  }
+```
+
+
+# Three little modalities
+
+
+## Thickness Eanat
+
+```{r thkfun}
+############################################
+thkmask=antsImageRead( paste(bd,"ptbp_mask_thickness.nii.gz",sep='') )
+thkfn=paste(bd,"ptbp_vox_thk.mha",sep='')
+thkmat=as.matrix( antsImageRead( thkfn ) )
+thkmat[ is.na( thkmat ) ] = 0
+baddata=NA
+if ( ! exists("wthk")  ) {
+  wthk=voxandeanatstudy( demog, thkmat, thkmask,
+         formulathkbase, formulathktest, voi=voi,
+         exclusionThresh = 0.5, baddata=baddata,
+         outprefix='/tmp/Eanat_THK', nv=neanatvecs )
+#  qv=p.adjust( ethk$eanatlm$beta.pval[ voi, ], method='BH' )
+ # print( min(qv) )
+  }
+```
+
+## FA Eanat
+
+```{r fafun}
+fafn=paste(bd,"ptbp_vox_fa.mha",sep='')
+famask=antsImageRead( paste(bd,"ptbp_mask_fa.nii.gz",sep='') )
+famat=as.matrix( antsImageRead( fafn ) )
+famat[ is.na( famat ) ] = 0
+baddata=c(42,44) # FA
+if ( ! exists("wfa")  ) {
+  wfa=voxandeanatstudy( demog, famat, famask,
+         formulathkbase, formulathktest, voi=voi,
+         exclusionThresh = 0.2, baddata=baddata,
+         outprefix='/tmp/Eanat_FA', nv=neanatvecs )
+ # qv=p.adjust( efa$eanatlm$beta.pval[ voi, ], method='BH' )
+#  print( min(qv) )
+  }
+```
+
+## CBF Eanat
+
+```{r cbffun}
+cbffn=paste(bd,"ptbp_vox_cbf.mha",sep='')
+cbfmat=as.matrix( antsImageRead( cbffn ) )
+cbfmat[ is.na( cbfmat ) ] = 0
+baddata=NA
+if ( ! exists("wcbf") ) {
+  wcbf=voxandeanatstudy( demog, cbfmat, thkmask,
+         formulathkbase, formulathktest, voi=voi,
+         exclusionThresh = 45, baddata=baddata,
+         outprefix='/tmp/Eanat_CBF', nv=neanatvecs )
+#  qv=p.adjust( ecbf$eanatlm$beta.pval[ voi,], method='BH' )
+ # print( min(qv) )
+  }
+```
+
+# Three little modalities jointly
+
+## SyMLR
+
+```{r symlr}
+haveAllMerge=( wthk & wfa & wcbf )
+inmats = list( thkmat[haveAllMerge,], famat[haveAllMerge,], cbfmat[haveAllMerge,] )
+svdth = svd(inmats[[1]],nu=20,nv=0)$u
+svdcb = svd(inmats[[2]],nu=20,nv=0)$u
+svdfa = svd(inmats[[3]],nu=20,nv=0)$u
+for ( k in 1:length( inmats ) ) inmats[[k]] = inmats[[k]] / norm( inmats[[k]], "F" )
+if ( ! exists( "smoms") ) { # regularization matrices
+  smoms = list()
+  spatmat = t( imageDomainToSpatialMatrix( thkmask, thkmask ) )
+  smoms[[1]] = knnSmoothingMatrix( spatmat, k = 100, sigma = 20 )
+  spatmat = t( imageDomainToSpatialMatrix( famask, famask ) )
+  smoms[[2]] = knnSmoothingMatrix( spatmat, k = 100, sigma = 20 )
+  smoms[[3]] = smoms[[1]]
+}
+if ( ! exists("initu" ) ) initu = initializeSyMLR( inmats, 8, jointReduction = T, uAlgorithm = 'random' )
+if ( ! exists("inmatsrob")) {
+  inmatsrob=list()
+  for ( k in 1:length( inmats ) ) inmatsrob[[k]] = robustMatrixTransform( inmats[[k]] )
+}
+if ( ! exists( "mysym" ) ) {
+  mysym = symlr( voxmats = inmats, smoothingMatrices = smoms,
+      iterations = 12,
+      sparsenessQuantiles = c(0.5,0.5,0.5),
+      positivities = rep( "positive", length( inmats )),
+      lineSearchRange = c( -1, 1 )*10,
+      lineSearchTolerance = 1e-4,
+      mixAlg = 'pca', randomSeed = as.numeric(Sys.time()),
+      initialUMatrix = 10,  energyType='cca',
+      orthogonalize = F,  verbose = 1, constraint='none' )
+  }
+pthk = inmats[[1]] %*% ( mysym$v[[1]] )
+pfa = inmats[[2]] %*% ( mysym$v[[2]] )
+pcbf = inmats[[3]] %*% ( mysym$v[[3]] )
+nmm=c("thk","fa","pcbf")
+######
+ss=1:3
+svdlr = svd( cbind(pthk,pfa,pcbf)  )$u
+m1 = lm( AgeAtScan ~   Sex, data = demog[haveAllMerge,] )
+m2 = lm( AgeAtScan ~  ( pthk[,ss] + pcbf[,ss] + pfa[,ss] ) + Sex, data = demog[haveAllMerge,] )
+#m2 = lm( AgeAtScan ~  svdlr + Sex, data = demog[haveAllMerge,] )
+print( anova( m1, m2  ) )
+mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m2)))
+m3 = lm( AgeAtScan ~  svdth + svdcb + svdfa + Sex, data = demog[haveAllMerge,] )
+print( anova( m1, m3  ) )
+mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m3)))
+# booyah!
+m1 = lm( Verbal.IQ ~   Sex + AgeAtScan , data = demog[haveAllMerge,] )
+m2 = lm( Verbal.IQ ~  ( pthk[,ss] +  pfa[,ss]  +pcbf[,ss]) + Sex +  AgeAtScan , data = demog[haveAllMerge,] )
+print( anova( m1, m2  ) )
+demog[haveAllMerge,"Income"] = antsrimpute(demog[haveAllMerge,])
+m1 = lm( Teen.Ladder.SES.score ~   Sex + stats::poly(AgeAtScan,1), data = demog[haveAllMerge,] )
+m2 = lm( Teen.Ladder.SES.score ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex + stats::poly(AgeAtScan,1)+1, data = demog[haveAllMerge,] )
+# m2 = lm( Teen.Ladder.SES.score ~  ( svdth[,ss] + svdfa[,ss]+ svdcb[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
+print( anova( m1, m2  ) )
+m1 = lm( FullScaleIQ ~   Sex + AgeAtScan, data = demog[haveAllMerge,] )
+m2 = lm( FullScaleIQ ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
+#m2 = lm( FullScaleIQ ~  ( svdth[,ss] + svdcb[,ss]+ svdfa[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
+print( anova( m1, m2  ) )
+# print( summary(m1) )
+# print( summary(m2) )
+
+print( summary(lm( pthk[,1] ~  ( pcbf[,1] + pfa[,1] ) + Sex + BV+ AgeAtScan, data = demog )) )
+# plot( thkmask, makeImage( thkmask,  abs(mysym$v[[1]][,1]) ) )
+```
+
+
+## Joint stats: Thickness, FA $+$ CBF
+
+```{r jointstats,echo=FALSE}
+mdl1=lm( AgeAtScan ~ . ,
+  data=alldf[,c(1:2,3,5,8)])
+mdl2=lm( AgeAtScan ~ . ,
+  data=alldf[,c(1:2,3,5,8,10:ncol(alldf))])
+knitr::kable(anova(mdl1,mdl2))
+```
+
+
+## Do some `visreg` ?
+
+...
+
+## Let's do some prediction
+
+Use random forests to decide how relevant each
+modality is to reproducible predictions of age.
+
+First get the data organized.
+```{r orgpred}
+library(randomForest)
+```
+
+
+
+## Build the RF model
+
+
+```{r rfpred,echo=FALSE}
+groups <- rep( c(1,2), 1000 )[1:nrow(alldf)]
+traing=groups==1
+testg=groups==2
+mdl=randomForest(  AgeAtScan ~ . , data=alldf[traing,], ntrees=2000 )
+predage = predict( mdl, newdata=alldf[ testg, ] )
+print( mean( abs(predage - alldf[testg,]$AgeAtScan ) ) )
+temp=data.frame(predage=predage,realage=alldf[testg,]$AgeAtScan )
+vmdl=lm( predage~realage,data=temp)
+visreg::visreg(vmdl)
+```
+
+## RF importance plot
+
+```{r rfimp,echo=FALSE}
+impdf=data.frame(
+  predNames=colnames(alldf)[ rev(order(mdl$importance)) ],
+  importance=mdl$importance[ rev(order(mdl$importance)) ]
+  )
+knitr::kable(  impdf )
+```
+
+
+## Build the RF model: Just thickness
+
+```{r rfpredt,echo=FALSE}
+mdl=randomForest(  AgeAtScan ~ . , data=thproj[traing,] )
+predage = predict( mdl, newdata=thproj[ testg, ] )
+print( mean( abs(predage - thproj[testg,]$AgeAtScan ) ) )
+temp=data.frame(predage=predage,realage=thproj[testg,]$AgeAtScan )
+vmdl=lm( predage~realage,data=temp)
+visreg::visreg(vmdl)
+```
+
+
+## Modalities Combined: Option 2 $=$ Impute
+
+Here, we have to identify which subjects have all modalities.
+
+```{r modmerge}
+wth=ethk$whichSubjects
+wfa=efa$whichSubjects
+wcb=ecbf$whichSubjects
+haveAll=( wth | wfa | wcb )
+```
+
+## Do the imputation
+
+Did not implement this well.... but relatively easy to improve ...
+
+```{r doimp}
+thkmati=thkmat
+thkmati[ haveAll, ]=antsrimpute( thkmat[ haveAll, ] )
+famati=famat
+famati[ haveAll, ]=antsrimpute( famat[ haveAll, ] )
+cbfmati=cbfmat
+cbfmati[ haveAll, ]=antsrimpute( cbfmat[ haveAll, ] )
+```
+
+
+## Call the new function ... imputation
+
+```{r eprojcalli}
+thproj=eanatproj( demog, thkmati, thkmask,
+  imgeanat=ethk$eanat,
+  formulathkbase, formulathktest,
+  voi=voi, whichSubs=haveAll )
+cbproj=eanatproj( demog, cbfmati, thkmask,
+  imgeanat=ecbf$eanat,
+  formulathkbase, formulathktest,
+  voi=voi, whichSubs=haveAll )
+faproj=eanatproj( demog, famati, famask,
+  imgeanat=efa$eanat,
+  formulathkbase, formulathktest,
+  voi=voi, whichSubs=haveAll )
+```
+
+## Join them all ... imputation
+
+```{r joineri}
+n=ncol(faproj)
+faprojsub=faproj[,(n-neanatvecs+1):n]
+n=ncol(cbproj)
+cbprojsub=cbproj[,(n-neanatvecs+1):n]
+alldf=cbind( thproj, FA=faprojsub, CBF=cbprojsub)
+```
+
+
+## Joint stats ... imputation
+
+```{r jointstatsi}
+mdl1=lm( AgeAtScan ~ . ,
+  data=alldf[,c(1:2,3,5,8)])
+mdl2=lm( AgeAtScan ~ . ,
+  data=alldf[,c(1:2,3,5,8,10:ncol(alldf))])
+knitr::kable( anova(mdl1,mdl2) )
+```
+
+
+# SCCAN with ANTsR
+
+## A little bit of CCA ...
+
+First, FA-based prediction ...
+
+* Use a couple of tricks
+
+* Imputation
+
+```{r facca,eval=TRUE}
+sdemog=antsrimpute( demog[haveAllMerge,c(7,8)] )
+# above is a bug sparseDecom/2 does not handle NAs well
+````
+
+* Residualization ...
+
+```{r facca0,eval=TRUE}
+rmat=residuals(lm( famat[haveAllMerge,] ~ demog$AgeAtScan[haveAllMerge] ))
+```
+
+* Why do we use these steps?
+
+## A little bit of CCA ...
+
+Now, run the decomposition - a "supervised PCA".
+
+```{r facca2,eval=TRUE}
+temp=rmat[traing,]
+inmatrix=list( scale(temp) ,
+ scale( data.matrix( sdemog[traing,])  ) )
+if ( ! exists("sccan") )
+  sccan=sparseDecom2(inmatrix, c(famask, NA),
+     sparseness = c( 0.01, 0.3 ), verbose=0,
+     nvecs = 3, its = 10, cthresh = c(5000, 0),
+     perms = 0, smooth = 0.5, mycoption = 1 )
+```
+
+```{r faccalow,eval=FALSE}
+# need this direction due to dimensionality restrictions
+cog=antsrimpute( data.matrix( demog[haveAllMerge,c(3,6:12)]) )
+dr=randcca( cog[traing,],  rmat[traing,], 6, 1 )
+K = t(dr$svd$u)
+lowmat = ( K %*% t(cog[traing,]) ) %*% rmat[traing, ]
+if ( ! exists("sccan") )
+  sccan=sparseDecom( lowmat, famask, nvecs=2, smooth=0.0,
+    sparseness=0.05, cthresh=20000,  its=2 )
+```
+
+
+## Check the CCA regions
+
+```{r thkcca4,eval=TRUE,echo=FALSE}
+ccaeseg=eigSeg( famask, matrixToImages(t(sccan$eig1),famask), FALSE  )
+plot( famask, ccaeseg, axis=3, nslices=16 )
+```
+
+## Look over cca results
+
+Which demographic variables match which imaging variables?
+
+```{r thkcca2,eval=TRUE}
+rownames( sccan$eig2 )=colnames( sdemog )
+knitr::kable( sccan$eig2 )
+```
+
+## Quick CCA-based prediction
+
+PIQ prediction ...
+
+```{r thkcca3,eval=TRUE,echo=FALSE}
+sccanmat=sccan$eig1
+sccanproj = famat[haveAllMerge,] %*% ( sccanmat )
+ccadf=data.frame( sdemog, sccanproj[,-1], # look at mdl
+  gender=demog$Sex[haveAllMerge],
+  age=demog$AgeAtScan[haveAllMerge])
+mdl=lm( Performance.IQ ~ . ,
+  data=ccadf[traing,-1] )
+pviq = predict( mdl, newdata=ccadf[ testg,-1] )
+mycog=ccadf[testg,]$Performance.IQ
+print( mean( abs( pviq - mycog) ) )
+cor.test( pviq, mycog )
+```
+
+
+## More cca ...
+
+Second, FA and CBF ...
+
+These modalities relate strongly to age ... how do they covary?
+
+```{r faccacbf,eval=TRUE}
+sdemog=antsrimpute( demog[haveAllMerge,c(3,7,8)] )
+temp=famat[haveAllMerge,][traing,]
+for ( i in 1:nrow(temp) )
+  temp[i,]=temp[i,]-mean(temp[i,])
+temp2=cbfmat[haveAllMerge,][traing,]
+for ( i in 1:nrow(temp2) )
+    temp2[i,]=temp2[i,]-mean(temp2[i,])
+inmatrix=list( temp , temp2 )
+if ( ! exists("fcsccan") )
+  fcsccan=sparseDecom2(inmatrix, c(famask, thkmask),
+     sparseness = c( 0.05, -0.05 ),
+     nvecs = 3, its = 10, cthresh = c(5000, 5000),
+     perms = 0, smooth = 0.5, mycoption = 1 )
+```
+
+
+```{r faccacbflow,eval=FALSE}
+temp=scale( famat[haveAllMerge,][traing,] )
+for ( i in 1:nrow(temp) )
+  temp[i,]=temp[i,]-mean(temp[i,])
+temp2=scale( cbfmat[haveAllMerge,][traing,] )
+# for ( i in 1:nrow(temp2) )
+#  temp2[i,]=temp2[i,]-mean(temp2[i,])
+ranker=20
+dr=randcca( temp2,  temp, ranker, 1 )
+K = t(dr$svd$u)
+lowmat = ( K %*% t(temp2) ) %*% temp
+s <- svd( temp, nu = 0, nv = ranker )$v
+s2 <- svd( temp2, nu = 0, nv = ranker )$v
+innermat <- t( temp2 %*% s2 ) %*% ( temp %*% s )
+# if ( ! exists("fcsccan") )
+#  fcsccan=sparseDecom(  lowmat, famask, cthresh = 5000,
+#     sparseness = 0.05, nvecs = 2, its = 2, smooth = 0.0 )
+if ( ! exists("ccsccan") ) {
+  dr=randcca( temp,  temp2, ranker, 1 )
+  K2 = t(dr$svd$u)
+  lowmat2 =  ( K2 %*% t(temp) ) %*% temp2
+#  ccsccan=sparseDecom( lowmat2, thkmask, cthresh = 5000,
+#     sparseness = 0.05, nvecs = 2, its = 2, smooth = 0. )
+  }
+
+inmatrix=list( lowmat , lowmat2 )
+fcsccan=sparseDecom2(inmatrix, c(famask, thkmask),
+     sparseness = c( 0.05, -0.05 ),
+     nvecs = 3, its = 10, cthresh = c(5000, 5000),
+     perms = 0, smooth = 0.5, mycoption = 1 )
+fcsccan$projections[,1]
+```
+
+## Check the CCA regions:FA
+
+```{r faccavfa,eval=TRUE,echo=FALSE}
+# ccaeseg=eigSeg( famask, matrixToImages(t(sccan$eig1),famask), FALSE  )
+# ccaeseg=eigSeg( famask, fcsccan$eigenanatomyimages, FALSE  )
+# plot( famask, ccaeseg, axis=3, nslices=16 )
+```
+
+## Check the CCA regions:CBF
+
+```{r faccavcbf,eval=FALSE,echo=FALSE}
+# ccaeseg=eigSeg( thkmask, ccsccan$eig, FALSE  )
+# plot( thkmask, ccaeseg, axis=3, nslices=16 )
+```
+
+## Quick CCA-based prediction: FA and CBF
+
+```{r facca3cbf,eval=TRUE,echo=FALSE}
+fcsccanmat=fcsccan$eig1
+# fcsccanmat=fcsccanmat/rowSums(fcsccanmat)
+fcsccanproj = famat[haveAllMerge,] %*% ( fcsccanmat )
+fcsccanmat2=fcsccan$eig2
+# fcsccanmat2=fcsccanmat2/rowSums(fcsccanmat2)
+fcsccanproj2 = cbfmat[haveAllMerge,] %*% ( fcsccanmat2 )
+ccadf=data.frame( sdemog, fcsccanproj, fcsccanproj2,
+  gender=demog$Sex[haveAllMerge] )
+lmdl=lm( AgeAtScan ~ ., data=ccadf[traing,c(1,4:7)] )
+mdl=randomForest( AgeAtScan ~., data=ccadf[traing,c(1,4:7)] )
+pviq = predict( lmdl, newdata=ccadf[ testg,c(1,4:7) ] )
+print( mean( abs( pviq - ccadf[testg,]$AgeAtScan) ) )
+cor.test( pviq, ccadf[testg,]$AgeAtScan )
+cor( fcsccanproj , fcsccanproj2 )
+```
+
+
+
+
+
+# Review
+
+## Discussion
+
+* Reviewed sparse dimensionality reduction
+
+* These methods update traditional dimensionality reduction tools for neuroimaging
+
+* We showed strategies for using these modalities together to find meaningful predictors.
+
+* Performed some visualization and interpretation.

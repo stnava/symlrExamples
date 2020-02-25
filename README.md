@@ -18,13 +18,20 @@ rmarkdown::render("symlr_BGLR_mouse2.Rmd")
 3. PTBP
 
 ```
-rmarkdown::render("symlr_Tumor.Rmd")
+rmarkdown::render("symlr_PTBP.Rmd")
 ```
 
 4. simulation data
 
 ```
-rmarkdown::render("symlr_Tumor.Rmd")
+rmarkdown::render("symlr_Simulation.Rmd")
+```
+
+
+5. BRCA data clustering
+
+```
+rmarkdown::render("symlr_BRCA.Rmd")
 ```
 
 # data for the glioma example - download then R CMD INSTALL the tgz file

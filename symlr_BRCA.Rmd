@@ -1,0 +1,93 @@
+---
+title: "SyMLR: BRCA Example"
+output: html_document
+---
+
+
+```{r}
+# https://cran.r-project.org/web/packages/r.jive/vignettes/BRCA_Example.html
+library( r.jive )
+library( ANTsR )
+data( BRCA_data )
+x = Data
+for ( k in 1:length( x ) ) x[[k]] = t( x[[k]] )
+source("~/code/ANTsR/R/multiscaleSVDxpts.R")
+showPCASyM <- function( x, result, nCluster, names )
+{
+  library( ggfortify )
+  temp = x[[1]] %*% result$v[[1]]
+  for ( k in 2:length(x)) temp = cbind( temp, x[[k]] %*% result$v[[k]] )
+  scaled_df = scale(temp,T,T)
+  mykm = kmeans(scaled_df, nCluster)
+  if ( ! missing( names ) ) {
+    mydf = data.frame( scaled_df, names=names )
+  } else  {
+    mydf = data.frame( scaled_df, names = as.character( mykm$cluster ) )
+  }
+  print( autoplot( prcomp(scaled_df), data = mydf, colour = 'names', label = F ) )
+}
+
+
+regularizeSyMLR <- function( x, knn, fraction = 0.1, sigma = 10 ) {
+  if ( missing( knn ) ) {
+    knn = rep( NA, length( x ) )
+    for ( i in 1:length( x ) )
+      knn[i] = round( fraction * ncol( x[[i]] ) )
+  }
+  slist = list()
+  for ( i in 1:length( x ) ) {
+    slist[[ i ]] = knnSmoothingMatrix( scale(data.matrix(x[[i]]),T,T), k = knn[i],
+      sigma = sigma )
+  }
+  return( slist )
+}
+predictSyMLR <- function( x, sym ) {
+  varx = rep( 0, length( x ) )
+  initialErrors = rep( 0, length( x ) )
+  finalErrors = rep( 0, length( x ) )
+  predictions = list()
+  for ( i in 1:length( x ) ) {
+    mdl = lm( x[[i]] ~ sym$u[[i]] )
+    predictions[[i]] = predict( mdl )
+    smdl = summary( mdl )
+    for ( j in 1:length( smdl ) )
+      varx[ i ] = varx[ i ] + smdl[[j]]$r.squared/ncol(x[[i]])
+    finalErrors[i] = norm( predictions[[i]] - x[[i]], "F")
+    initialErrors[i] = norm(  x[[i]], "F")
+  }
+  list( varx = varx, predictions = predictions,
+    initialErrors = initialErrors,
+    finalErrors = finalErrors  )
+}
+mxalg = 'avg'
+initu = initializeSyMLR( x, k = 11, uAlgorithm = 'random', jointReduction=T )
+regs  = regularizeSyMLR( x, fraction = 0.01, sigma = 2 )
+# if ( ! exists( "myseed" ) )
+myseed = as.numeric( Sys.time()  )
+connex = list( c(2,3), c(1,3), c(1,2) )
+t1 = Sys.time()
+if ( ! exists( "sResult" ) )
+  sResult = symlr(  x,
+    regs,
+    iterations = 55,
+    sparsenessQuantiles = rep( 0.5, length( x ) ),
+    positivities = rep( 'positive', length( x ) ),
+    initialUMatrix = initu, verbose = 1,
+    orthogonalize = F,
+    lineSearchRange = c( -1, 1 ) * 1e1,
+    lineSearchTolerance = 1e-6,
+    mixAlg = 'ica',
+    energyType = 'cca',
+#    connectors = connex,
+    optimizationStyle = 'mixed',
+    constraint = 'none', randomSeed = myseed )
+t2 = Sys.time()
+svx = predictSyMLR( x, sResult )
+print( svx[1] )
+print((svx$initialErrors/svx$finalErrors)^-1)
+plot( ts( sResult$energyPath[-1,] ) )
+print( t2 - t1 )
+# if ( ! exists( "Results" ) )
+#  Results = jive(Data,method="given",rankJ=2,rankA=c(27,26,25))
+showPCASyM( x, sResult, 3 ) #, names=substr(colnames(Data[[2]]),6,7) )
+```
