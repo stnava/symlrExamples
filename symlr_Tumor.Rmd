@@ -1,3 +1,11 @@
+---
+title: "SyMLR: Tumor Data"
+output: html_document
+---
+
+see [https://cran.r-project.org/web/packages/RGCCA/vignettes/vignette_RGCCA.pdf](https://cran.r-project.org/web/packages/RGCCA/vignettes/vignette_RGCCA.pdf)
+
+```{r}
 set.seed( 1 )
 library( ANTsR )
 library( ggplot2 )
@@ -38,7 +46,7 @@ df1 = data.frame(Loc = Loc,
   CGH1 = sgcca.glioma$Y[[2]][, 1])
 p1 <- ggplot(df1, aes(GE1, CGH1)) + geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
-  ggtitle("Factor plot (Glioma data)") + geom_text(aes(colour = Loc, label= rownames(df1)),
+  ggtitle("Factor plot (Glioma data): RGCCA") + geom_text(aes(colour = Loc, label= rownames(df1)),
   vjust=0,nudge_y = 0.03,size = 3 )+ theme(legend.position="bottom", legend.box = "horizontal",
  legend.title = element_blank())
 p1
@@ -65,7 +73,7 @@ df1 = data.frame(Loc = Loc,
   CGH1 = temp2[, 1])
 p1 <- ggplot(df1, aes(GE1, CGH1)) + geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
-  ggtitle("Factor plot (Glioma data)") + geom_text(aes(colour = Loc, label= rownames(df1)),
+  ggtitle("Factor plot (Glioma data): SyMLR") + geom_text(aes(colour = Loc, label= rownames(df1)),
   vjust=0,nudge_y = 0.03,size = 3 )+ theme(legend.position="bottom", legend.box = "horizontal",
  legend.title = element_blank())
 p1
@@ -83,3 +91,4 @@ A = list(X_agric, X_ind, X_polit)
 # standardization
 A = lapply(A, function(x) scale2(x, bias = TRUE))
 # ....
+```

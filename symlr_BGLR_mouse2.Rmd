@@ -1,3 +1,12 @@
+---
+title: "SyMLR: BGLR data"
+output: html_document
+---
+
+see [https://cran.r-project.org/web/packages/BGLR/BGLR.pdf](https://cran.r-project.org/web/packages/BGLR/BGLR.pdf) and [https://cran.r-project.org/web/packages/BGLR/vignettes/BGLR-extdoc.pdf](https://cran.r-project.org/web/packages/BGLR/vignettes/BGLR-extdoc.pdf)
+
+
+```{r setup}
 set.seed( 1 )
 library( ANTsR )
 library( ggplot2 )
@@ -53,7 +62,7 @@ regularizeSyMLR <- function( x, knn, fraction = 0.1, sigma = 10 ) {
   slist = list()
   for ( i in 1:length( x ) ) {
     slist[[ i ]] = knnSmoothingMatrix( scale(data.matrix(x[[i]]),T,T), k = knn[i],
-      sigma = sigma[i]   )
+      sigma = sigma   )
   }
   return( slist )
 }
@@ -80,16 +89,14 @@ if ( ! exists("inmatsScl") ) {
   for ( i in 1:length( inmats ) )
     inmatsScl[[i]] = ( scale( inmats[[i]], T, T ) )
   }
-if ( ! exists( "regs" ) ) {
-  regs = list() # regularizeSyMLR( inmats, fraction = 0.1, sigma = 3 )
-  regs[[2]] = diag(ncol(inmats[[2]]))
-  regs[[1]] = diag(ncol(inmats[[1]]))
-  }
-source("~/code/ANTsR/R/multiscaleSVDxpts.R")
+
+if ( ! exists( "regs" ) )
+  regs = regularizeSyMLR( inmats, fraction = 0.1, sigma = 3 )
+# regs[[2]] = diag(ncol(inmats[[2]]))
+# regs[[1]] = diag(ncol(inmats[[1]]))
 # if ( ! exists( "initu" ) )
 initu = # snpd$projections # init with cca
-  initializeSyMLR( inmatsScl, nv, jointReduction = T, uAlgorithm = 'ica' )
-source("~/code/ANTsR/R/multiscaleSVDxpts.R")
+  initializeSyMLR( inmatsScl, nv, jointReduction = T, uAlgorithm = 'random' )
 vinit = NULL
 connex = list( c(2), c(1) ) # both cca and pca
 sResult = symlr(
@@ -111,6 +118,12 @@ sResult = symlr(
       optimizationStyle = 'mixed',
       randomSeed = locseed )
 # ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||
+```
+
+Demonstrate post-hoc descriptive statistics and prediction of BMI
+from SNPs.
+
+```{r postsym}
 svx = predictSyMLR( inmatsScl, sResult )
 print( svx[1] )
 print((svx$initialErrors/svx$finalErrors)^-1)
@@ -127,9 +140,11 @@ print( cor.test( spreddf, testdf$bmi ) )
 print(paste("Err",  mean(abs(spreddf-testdf$bmi))  ) )
 plot( preddf, testdf$bmi, xlim=c(-8,8),ylim=c(-8,8))
 plot( spreddf, testdf$bmi, xlim=c(-8,8),ylim=c(-8,8))
+```
 
+comparison to RGCCA
 
-
+```{r rgcca}
 message("use RGCCA to compute the same type of representation")
 # see the RGCCA package vignette for more information on this
 library( RGCCA )
@@ -148,3 +163,4 @@ myrf<-mlFun( bmi ~ . , data=straindf[,] )
 spreddf <- predict( myrf, newdata=stestdf )
 print( cor.test( spreddf, testdf$bmi ) )
 print(paste("RGCCA Err",  mean(abs(spreddf-testdf$bmi))  ) )
+```
