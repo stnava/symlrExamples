@@ -8,7 +8,7 @@ output: html_document
 ```{r setup,eval=TRUE,results='hide',warning=FALSE,echo=FALSE}
 # set this for your own compilation
 bd="./data/"
-set.seed( 101 )
+set.seed( Sys.time() )
 library( pander )
 library( ggplot2 )
 ```
@@ -172,9 +172,11 @@ if ( ! exists("wcbf") ) {
 ```{r symlr}
 haveAllMerge=( wthk & wfa & wcbf )
 inmats = list( thkmat[haveAllMerge,], famat[haveAllMerge,], cbfmat[haveAllMerge,] )
-svdth = svd(inmats[[1]],nu=20,nv=0)$u
-svdcb = svd(inmats[[2]],nu=20,nv=0)$u
-svdfa = svd(inmats[[3]],nu=20,nv=0)$u
+if ( ! exists( "svdth" ) ) {
+  svdth = svd(inmats[[1]],nu=20,nv=0)$u
+  svdcb = svd(inmats[[2]],nu=20,nv=0)$u
+  svdfa = svd(inmats[[3]],nu=20,nv=0)$u
+}
 for ( k in 1:length( inmats ) ) inmats[[k]] = inmats[[k]] / norm( inmats[[k]], "F" )
 if ( ! exists( "smoms") ) { # regularization matrices
   smoms = list()
@@ -189,19 +191,22 @@ if ( ! exists("inmatsrob")) {
 #  inmatsrob=list()
  # for ( k in 1:length( inmats ) ) inmatsrob[[k]] = robustMatrixTransform( inmats[[k]] )
 }
-if ( ! exists( "eType" ) )  eType = 'regression'
-if ( ! exists( "mysym" ) ) {
-  mysym = symlr( 
-      voxmats = inmats, scale = T,
+if ( ! exists( "eType" ) )  eType = 'lowRank' # choose this for speed b/c p is large
+if ( ! exists( "mysym" ) | TRUE ) {
+  mysym = symlr(
+      voxmats = inmats, 
+      scale = T,
       smoothingMatrices = smoms,
-      iterations = 12,
+      iterations = 25,
       sparsenessQuantiles = c(0.9,0.9,0.9),
       positivities = rep( "positive", length( inmats )),
-      lineSearchRange = c( -1, 1 )*10,
+      lineSearchRange = c( -1, 1 )*1,
       lineSearchTolerance = 1e-4,
-      mixAlg = 'pca', randomSeed = as.numeric(Sys.time()),
+      mixAlg = 'avg', randomSeed = as.numeric(Sys.time()),
       initialUMatrix = 10,  energyType = eType,
-      orthogonalize = F,  verbose = 1, constraint='none' )
+      orthogonalize = FALSE,  
+      constraint='Stiefel',
+      verbose = 1 )
   }
 pthk = inmats[[1]] %*% ( mysym$v[[1]] )
 pfa = inmats[[2]] %*% ( mysym$v[[2]] )
@@ -248,9 +253,13 @@ print( anova( m1, m2  ) )
 m1 = lm( FullScaleIQ ~   Sex + AgeAtScan, data = demog[haveAllMerge,] )
 m2 = lm( FullScaleIQ ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
 # m2 = lm( FullScaleIQ ~  ( svdth[,ss] + svdcb[,ss]+ svdfa[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
-# print( anova( m1, m2  ) )
+print( anova( m1, m2  ) )
 # print( summary(m1) )
 # print( summary(m2) )
+```
+
+
+```{r FIQp}
 pander( m2 )
 ```
 
@@ -296,7 +305,7 @@ traing=groups==1
 testg=groups==2
 mdl=randomForest(  AgeAtScan ~ . , data=alldf[traing,],localImp = TRUE )
 predage = predict( mdl, newdata=alldf[ testg, ] )
-print( mean( abs(predage - alldf[testg,]$AgeAtScan ) ) )
+print( paste( "Predicted age error:", mean( abs(predage - alldf[testg,]$AgeAtScan ) ) ) )
 temp=data.frame(predage=predage,realage=alldf[testg,]$AgeAtScan )
 vmdl=lm( predage~realage,data=temp)
 visreg::visreg(vmdl)

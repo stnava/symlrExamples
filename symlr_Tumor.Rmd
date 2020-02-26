@@ -62,7 +62,7 @@ sResult = symlr( A, smoothingMatrices=regs,
   sparsenessQuantiles = c(0.0, 0.0, 0.0), # general purpose defaults
   positivities =  c('either','either','either'),
   initialUMatrix = initu, iterations = 50,
-  mixAlg = 'avg', orthogonalize = T,
+  mixAlg = 'pca', orthogonalize = F,
   energyType = eType,
   scale = T,
   verbose = T )
