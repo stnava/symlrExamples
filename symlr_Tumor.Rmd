@@ -42,8 +42,8 @@ sgcca.glioma = sgcca(A[1:2], C2, c1 = c(.071,.2), ncomp = c(2, 2),
   scheme = "centroid", scale = TRUE, verbose = FALSE)
 
 df1 = data.frame(Loc = Loc,
-  GE1 = sgcca.glioma$Y[[1]][, 1],
-  CGH1 = sgcca.glioma$Y[[2]][, 1])
+  GE1 = rgcca.glioma$Y[[1]][, 1],
+  CGH1 = rgcca.glioma$Y[[2]][, 1])
 p1 <- ggplot(df1, aes(GE1, CGH1)) + geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
   ggtitle("Factor plot (Glioma data): RGCCA") + geom_text(aes(colour = Loc, label= rownames(df1)),
@@ -51,22 +51,25 @@ p1 <- ggplot(df1, aes(GE1, CGH1)) + geom_vline(xintercept = 0) +
  legend.title = element_blank())
 p1
 regs=list()
-for ( i in 1:2 ) {
+for ( i in 1:length( A ) ) {
   temp=cor( A[[i]])
   temp[temp<0.2]=0
   regs[[i]]=temp
 }
-sResult = symlr( A[1:2], smoothingMatrices=regs,
-  sparsenessQuantiles = c(0.5, 0.5, 0.5), # general purpose defaults
+initu = initializeSyMLR( A, 2, jointReduction=T, uAlgorithm = 'ica' )
+sResult = symlr( A, smoothingMatrices=regs,
+  sparsenessQuantiles = c(0.0, 0.0, 0.0), # general purpose defaults
   positivities =  c('either','either','either'),
-  initialUMatrix = 2,
+  initialUMatrix = initu, iterations = 50,
   mixAlg = 'ica',
-  energyType = 'regression', scale = T, verbose = T )
+  energyType = 'cca', scale = T, verbose = T )
 row.names(sResult$u[[1]])=row.names(sgcca.glioma$Y[[1]])
 row.names(sResult$u[[2]])=row.names(sgcca.glioma$Y[[1]])
 # row.names(sResult$u[[3]])=row.names(sgcca.glioma$Y[[1]])
+temp1 = sResult$u[[1]] # A[[1]] %*% sResult$v[[1]]
+temp2 = sResult$u[[2]] # A[[2]] %*% sResult$v[[2]]
 temp1 = A[[1]] %*% sResult$v[[1]]
-temp2 = A[[2]] %*% sResult$v[[2]]
+temp2 =  A[[2]] %*% sResult$v[[2]]
 row.names(temp1)=row.names(temp2)=row.names(sgcca.glioma$Y[[1]])
 df1 = data.frame(Loc = Loc,
   GE1 = temp1[, 1],
@@ -76,7 +79,7 @@ p1 <- ggplot(df1, aes(GE1, CGH1)) + geom_vline(xintercept = 0) +
   ggtitle("Factor plot (Glioma data): SyMLR") + geom_text(aes(colour = Loc, label= rownames(df1)),
   vjust=0,nudge_y = 0.03,size = 3 )+ theme(legend.position="bottom", legend.box = "horizontal",
  legend.title = element_blank())
-p1
+print( p1 )
 
 
 

@@ -204,13 +204,13 @@ pfa = inmats[[2]] %*% ( mysym$v[[2]] )
 pcbf = inmats[[3]] %*% ( mysym$v[[3]] )
 nmm=c("thk","fa","pcbf")
 ######
-ss=1:3
+ss=1:6
 svdlr = svd( cbind(pthk,pfa,pcbf)  )$u
 m1 = lm( AgeAtScan ~   Sex, data = demog[haveAllMerge,] )
 m2 = lm( AgeAtScan ~  ( pthk[,ss] + pcbf[,ss] + pfa[,ss] ) + Sex, data = demog[haveAllMerge,] )
 #m2 = lm( AgeAtScan ~  svdlr + Sex, data = demog[haveAllMerge,] )
 print( anova( m1, m2  ) )
-mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m2)))
+print(mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m2))))
 m3 = lm( AgeAtScan ~  svdth + svdcb + svdfa + Sex, data = demog[haveAllMerge,] )
 print( anova( m1, m3  ) )
 mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m3)))
@@ -218,7 +218,7 @@ mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m3)))
 m1 = lm( Verbal.IQ ~   Sex + AgeAtScan , data = demog[haveAllMerge,] )
 m2 = lm( Verbal.IQ ~  ( pthk[,ss] +  pfa[,ss]  +pcbf[,ss]) + Sex +  AgeAtScan , data = demog[haveAllMerge,] )
 print( anova( m1, m2  ) )
-demog[haveAllMerge,"Income"] = antsrimpute(demog[haveAllMerge,])
+demog[haveAllMerge,"Income"] = antsrimpute(demog[haveAllMerge,"Income"])
 m1 = lm( Teen.Ladder.SES.score ~   Sex + stats::poly(AgeAtScan,1), data = demog[haveAllMerge,] )
 m2 = lm( Teen.Ladder.SES.score ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex + stats::poly(AgeAtScan,1)+1, data = demog[haveAllMerge,] )
 # m2 = lm( Teen.Ladder.SES.score ~  ( svdth[,ss] + svdfa[,ss]+ svdcb[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
@@ -230,7 +230,8 @@ print( anova( m1, m2  ) )
 # print( summary(m1) )
 # print( summary(m2) )
 
-print( summary(lm( pthk[,1] ~  ( pcbf[,1] + pfa[,1] ) + Sex + BV+ AgeAtScan, data = demog )) )
+print( summary(lm( pthk[,1] ~  ( pcbf[,2] + pfa[,2] ) + Sex + BV +
+  AgeAtScan, data = demog[haveAllMerge,] )) )
 # plot( thkmask, makeImage( thkmask,  abs(mysym$v[[1]][,1]) ) )
 ```
 
@@ -238,10 +239,12 @@ print( summary(lm( pthk[,1] ~  ( pcbf[,1] + pfa[,1] ) + Sex + BV+ AgeAtScan, dat
 ## Joint stats: Thickness, FA $+$ CBF
 
 ```{r jointstats,echo=FALSE}
+alldf = data.frame( demog[haveAllMerge,], thk=pthk, fa=pfa, cbf=pcbf )
+alldf = alldf[,c(3,4,20:49)]
 mdl1=lm( AgeAtScan ~ . ,
-  data=alldf[,c(1:2,3,5,8)])
+  data=alldf[,c(1,2)])
 mdl2=lm( AgeAtScan ~ . ,
-  data=alldf[,c(1:2,3,5,8,10:ncol(alldf))])
+  data=alldf[,])
 knitr::kable(anova(mdl1,mdl2))
 ```
 
@@ -288,80 +291,6 @@ knitr::kable(  impdf )
 ```
 
 
-## Build the RF model: Just thickness
-
-```{r rfpredt,echo=FALSE}
-mdl=randomForest(  AgeAtScan ~ . , data=thproj[traing,] )
-predage = predict( mdl, newdata=thproj[ testg, ] )
-print( mean( abs(predage - thproj[testg,]$AgeAtScan ) ) )
-temp=data.frame(predage=predage,realage=thproj[testg,]$AgeAtScan )
-vmdl=lm( predage~realage,data=temp)
-visreg::visreg(vmdl)
-```
-
-
-## Modalities Combined: Option 2 $=$ Impute
-
-Here, we have to identify which subjects have all modalities.
-
-```{r modmerge}
-wth=ethk$whichSubjects
-wfa=efa$whichSubjects
-wcb=ecbf$whichSubjects
-haveAll=( wth | wfa | wcb )
-```
-
-## Do the imputation
-
-Did not implement this well.... but relatively easy to improve ...
-
-```{r doimp}
-thkmati=thkmat
-thkmati[ haveAll, ]=antsrimpute( thkmat[ haveAll, ] )
-famati=famat
-famati[ haveAll, ]=antsrimpute( famat[ haveAll, ] )
-cbfmati=cbfmat
-cbfmati[ haveAll, ]=antsrimpute( cbfmat[ haveAll, ] )
-```
-
-
-## Call the new function ... imputation
-
-```{r eprojcalli}
-thproj=eanatproj( demog, thkmati, thkmask,
-  imgeanat=ethk$eanat,
-  formulathkbase, formulathktest,
-  voi=voi, whichSubs=haveAll )
-cbproj=eanatproj( demog, cbfmati, thkmask,
-  imgeanat=ecbf$eanat,
-  formulathkbase, formulathktest,
-  voi=voi, whichSubs=haveAll )
-faproj=eanatproj( demog, famati, famask,
-  imgeanat=efa$eanat,
-  formulathkbase, formulathktest,
-  voi=voi, whichSubs=haveAll )
-```
-
-## Join them all ... imputation
-
-```{r joineri}
-n=ncol(faproj)
-faprojsub=faproj[,(n-neanatvecs+1):n]
-n=ncol(cbproj)
-cbprojsub=cbproj[,(n-neanatvecs+1):n]
-alldf=cbind( thproj, FA=faprojsub, CBF=cbprojsub)
-```
-
-
-## Joint stats ... imputation
-
-```{r jointstatsi}
-mdl1=lm( AgeAtScan ~ . ,
-  data=alldf[,c(1:2,3,5,8)])
-mdl2=lm( AgeAtScan ~ . ,
-  data=alldf[,c(1:2,3,5,8,10:ncol(alldf))])
-knitr::kable( anova(mdl1,mdl2) )
-```
 
 
 # SCCAN with ANTsR
