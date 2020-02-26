@@ -185,18 +185,21 @@ if ( ! exists( "smoms") ) { # regularization matrices
 }
 if ( ! exists("initu" ) ) initu = initializeSyMLR( inmats, 8, jointReduction = T, uAlgorithm = 'random' )
 if ( ! exists("inmatsrob")) {
-  inmatsrob=list()
-  for ( k in 1:length( inmats ) ) inmatsrob[[k]] = robustMatrixTransform( inmats[[k]] )
+#  inmatsrob=list()
+ # for ( k in 1:length( inmats ) ) inmatsrob[[k]] = robustMatrixTransform( inmats[[k]] )
 }
+if ( ! exists( "eType" ) )  eType = 'regression'
 if ( ! exists( "mysym" ) ) {
-  mysym = symlr( voxmats = inmats, smoothingMatrices = smoms,
+  mysym = symlr( 
+      voxmats = inmats, scale = T,
+      smoothingMatrices = smoms,
       iterations = 12,
-      sparsenessQuantiles = c(0.5,0.5,0.5),
+      sparsenessQuantiles = c(0.9,0.9,0.9),
       positivities = rep( "positive", length( inmats )),
       lineSearchRange = c( -1, 1 )*10,
       lineSearchTolerance = 1e-4,
       mixAlg = 'pca', randomSeed = as.numeric(Sys.time()),
-      initialUMatrix = 10,  energyType='cca',
+      initialUMatrix = 10,  energyType = eType,
       orthogonalize = F,  verbose = 1, constraint='none' )
   }
 pthk = inmats[[1]] %*% ( mysym$v[[1]] )
@@ -204,32 +207,54 @@ pfa = inmats[[2]] %*% ( mysym$v[[2]] )
 pcbf = inmats[[3]] %*% ( mysym$v[[3]] )
 nmm=c("thk","fa","pcbf")
 ######
-ss=1:6
+```
+
+
+
+```{r brainAge}
+ss=1:8
 svdlr = svd( cbind(pthk,pfa,pcbf)  )$u
+svdlr2 = svd( cbind(svdth,svdcb,svdfa)  )$u
 m1 = lm( AgeAtScan ~   Sex, data = demog[haveAllMerge,] )
 m2 = lm( AgeAtScan ~  ( pthk[,ss] + pcbf[,ss] + pfa[,ss] ) + Sex, data = demog[haveAllMerge,] )
-#m2 = lm( AgeAtScan ~  svdlr + Sex, data = demog[haveAllMerge,] )
+m2 = lm( AgeAtScan ~  svdlr[,ss] + Sex, data = demog[haveAllMerge,] )
 print( anova( m1, m2  ) )
 print(mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m2))))
-m3 = lm( AgeAtScan ~  svdth + svdcb + svdfa + Sex, data = demog[haveAllMerge,] )
+m3 = lm( AgeAtScan ~ svdlr2[,ss] + Sex, data = demog[haveAllMerge,] )
 print( anova( m1, m3  ) )
 mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m3)))
-# booyah!
+```
+
+
+```{r VIQ}
+ss = 1:2 # look at top two components from all 3 modalities
 m1 = lm( Verbal.IQ ~   Sex + AgeAtScan , data = demog[haveAllMerge,] )
 m2 = lm( Verbal.IQ ~  ( pthk[,ss] +  pfa[,ss]  +pcbf[,ss]) + Sex +  AgeAtScan , data = demog[haveAllMerge,] )
 print( anova( m1, m2  ) )
+```
+
+
+```{r SES}
 demog[haveAllMerge,"Income"] = antsrimpute(demog[haveAllMerge,"Income"])
 m1 = lm( Teen.Ladder.SES.score ~   Sex + stats::poly(AgeAtScan,1), data = demog[haveAllMerge,] )
 m2 = lm( Teen.Ladder.SES.score ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex + stats::poly(AgeAtScan,1)+1, data = demog[haveAllMerge,] )
 # m2 = lm( Teen.Ladder.SES.score ~  ( svdth[,ss] + svdfa[,ss]+ svdcb[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
 print( anova( m1, m2  ) )
+```
+
+
+```{r FIQ}
 m1 = lm( FullScaleIQ ~   Sex + AgeAtScan, data = demog[haveAllMerge,] )
 m2 = lm( FullScaleIQ ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
-#m2 = lm( FullScaleIQ ~  ( svdth[,ss] + svdcb[,ss]+ svdfa[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
-print( anova( m1, m2  ) )
+# m2 = lm( FullScaleIQ ~  ( svdth[,ss] + svdcb[,ss]+ svdfa[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
+# print( anova( m1, m2  ) )
 # print( summary(m1) )
 # print( summary(m2) )
+pander( m2 )
+```
 
+
+```{r sanitycheck}
 print( summary(lm( pthk[,1] ~  ( pcbf[,2] + pfa[,2] ) + Sex + BV +
   AgeAtScan, data = demog[haveAllMerge,] )) )
 # plot( thkmask, makeImage( thkmask,  abs(mysym$v[[1]][,1]) ) )
@@ -248,10 +273,6 @@ mdl2=lm( AgeAtScan ~ . ,
 knitr::kable(anova(mdl1,mdl2))
 ```
 
-
-## Do some `visreg` ?
-
-...
 
 ## Let's do some prediction
 
@@ -272,7 +293,7 @@ library(randomForest)
 groups <- rep( c(1,2), 1000 )[1:nrow(alldf)]
 traing=groups==1
 testg=groups==2
-mdl=randomForest(  AgeAtScan ~ . , data=alldf[traing,], ntrees=2000 )
+mdl=randomForest(  AgeAtScan ~ . , data=alldf[traing,],localImp = TRUE )
 predage = predict( mdl, newdata=alldf[ testg, ] )
 print( mean( abs(predage - alldf[testg,]$AgeAtScan ) ) )
 temp=data.frame(predage=predage,realage=alldf[testg,]$AgeAtScan )
@@ -283,191 +304,35 @@ visreg::visreg(vmdl)
 ## RF importance plot
 
 ```{r rfimp,echo=FALSE}
-impdf=data.frame(
-  predNames=colnames(alldf)[ rev(order(mdl$importance)) ],
-  importance=mdl$importance[ rev(order(mdl$importance)) ]
-  )
-knitr::kable(  impdf )
+library( randomForestExplainer )
+importance_frame <- measure_importance( mdl )
+plot_multi_way_importance( importance_frame,  size_measure = "p_value" )
+# impdf=data.frame(
+#  predNames=colnames(alldf)[ rev(order(mdl$importance)) ],
+#  importance=mdl$importance[ rev(order(mdl$importance)) ]
+#  )
+# knitr::kable(  impdf )
 ```
 
 
 
 
-# SCCAN with ANTsR
-
-## A little bit of CCA ...
-
-First, FA-based prediction ...
-
-* Use a couple of tricks
-
-* Imputation
-
-```{r facca,eval=TRUE}
-sdemog=antsrimpute( demog[haveAllMerge,c(7,8)] )
-# above is a bug sparseDecom/2 does not handle NAs well
-````
-
-* Residualization ...
-
-```{r facca0,eval=TRUE}
-rmat=residuals(lm( famat[haveAllMerge,] ~ demog$AgeAtScan[haveAllMerge] ))
-```
-
-* Why do we use these steps?
-
-## A little bit of CCA ...
-
-Now, run the decomposition - a "supervised PCA".
-
-```{r facca2,eval=TRUE}
-temp=rmat[traing,]
-inmatrix=list( scale(temp) ,
- scale( data.matrix( sdemog[traing,])  ) )
-if ( ! exists("sccan") )
-  sccan=sparseDecom2(inmatrix, c(famask, NA),
-     sparseness = c( 0.01, 0.3 ), verbose=0,
-     nvecs = 3, its = 10, cthresh = c(5000, 0),
-     perms = 0, smooth = 0.5, mycoption = 1 )
-```
-
-```{r faccalow,eval=FALSE}
-# need this direction due to dimensionality restrictions
-cog=antsrimpute( data.matrix( demog[haveAllMerge,c(3,6:12)]) )
-dr=randcca( cog[traing,],  rmat[traing,], 6, 1 )
-K = t(dr$svd$u)
-lowmat = ( K %*% t(cog[traing,]) ) %*% rmat[traing, ]
-if ( ! exists("sccan") )
-  sccan=sparseDecom( lowmat, famask, nvecs=2, smooth=0.0,
-    sparseness=0.05, cthresh=20000,  its=2 )
-```
-
-
-## Check the CCA regions
+## Check the CCA regions for WM
 
 ```{r thkcca4,eval=TRUE,echo=FALSE}
-ccaeseg=eigSeg( famask, matrixToImages(t(sccan$eig1),famask), FALSE  )
-plot( famask, ccaeseg, axis=3, nslices=16 )
+eImgs = matrixToImages(t(mysym$v[[2]][,1:2]),famask)
+plot( famask, iMath(abs(eImgs[[1]]),"Normalize")*1, window.overlay=c(0.1,1), axis=3, nslices=16 )
+plot( famask, iMath(abs(eImgs[[2]]),"Normalize")*1, window.overlay=c(0.1,1), axis=3, nslices=16 )
 ```
 
 ## Look over cca results
 
 Which demographic variables match which imaging variables?
 
-```{r thkcca2,eval=TRUE}
+```{r thkcca2,eval=FALSE}
 rownames( sccan$eig2 )=colnames( sdemog )
 knitr::kable( sccan$eig2 )
 ```
-
-## Quick CCA-based prediction
-
-PIQ prediction ...
-
-```{r thkcca3,eval=TRUE,echo=FALSE}
-sccanmat=sccan$eig1
-sccanproj = famat[haveAllMerge,] %*% ( sccanmat )
-ccadf=data.frame( sdemog, sccanproj[,-1], # look at mdl
-  gender=demog$Sex[haveAllMerge],
-  age=demog$AgeAtScan[haveAllMerge])
-mdl=lm( Performance.IQ ~ . ,
-  data=ccadf[traing,-1] )
-pviq = predict( mdl, newdata=ccadf[ testg,-1] )
-mycog=ccadf[testg,]$Performance.IQ
-print( mean( abs( pviq - mycog) ) )
-cor.test( pviq, mycog )
-```
-
-
-## More cca ...
-
-Second, FA and CBF ...
-
-These modalities relate strongly to age ... how do they covary?
-
-```{r faccacbf,eval=TRUE}
-sdemog=antsrimpute( demog[haveAllMerge,c(3,7,8)] )
-temp=famat[haveAllMerge,][traing,]
-for ( i in 1:nrow(temp) )
-  temp[i,]=temp[i,]-mean(temp[i,])
-temp2=cbfmat[haveAllMerge,][traing,]
-for ( i in 1:nrow(temp2) )
-    temp2[i,]=temp2[i,]-mean(temp2[i,])
-inmatrix=list( temp , temp2 )
-if ( ! exists("fcsccan") )
-  fcsccan=sparseDecom2(inmatrix, c(famask, thkmask),
-     sparseness = c( 0.05, -0.05 ),
-     nvecs = 3, its = 10, cthresh = c(5000, 5000),
-     perms = 0, smooth = 0.5, mycoption = 1 )
-```
-
-
-```{r faccacbflow,eval=FALSE}
-temp=scale( famat[haveAllMerge,][traing,] )
-for ( i in 1:nrow(temp) )
-  temp[i,]=temp[i,]-mean(temp[i,])
-temp2=scale( cbfmat[haveAllMerge,][traing,] )
-# for ( i in 1:nrow(temp2) )
-#  temp2[i,]=temp2[i,]-mean(temp2[i,])
-ranker=20
-dr=randcca( temp2,  temp, ranker, 1 )
-K = t(dr$svd$u)
-lowmat = ( K %*% t(temp2) ) %*% temp
-s <- svd( temp, nu = 0, nv = ranker )$v
-s2 <- svd( temp2, nu = 0, nv = ranker )$v
-innermat <- t( temp2 %*% s2 ) %*% ( temp %*% s )
-# if ( ! exists("fcsccan") )
-#  fcsccan=sparseDecom(  lowmat, famask, cthresh = 5000,
-#     sparseness = 0.05, nvecs = 2, its = 2, smooth = 0.0 )
-if ( ! exists("ccsccan") ) {
-  dr=randcca( temp,  temp2, ranker, 1 )
-  K2 = t(dr$svd$u)
-  lowmat2 =  ( K2 %*% t(temp) ) %*% temp2
-#  ccsccan=sparseDecom( lowmat2, thkmask, cthresh = 5000,
-#     sparseness = 0.05, nvecs = 2, its = 2, smooth = 0. )
-  }
-
-inmatrix=list( lowmat , lowmat2 )
-fcsccan=sparseDecom2(inmatrix, c(famask, thkmask),
-     sparseness = c( 0.05, -0.05 ),
-     nvecs = 3, its = 10, cthresh = c(5000, 5000),
-     perms = 0, smooth = 0.5, mycoption = 1 )
-fcsccan$projections[,1]
-```
-
-## Check the CCA regions:FA
-
-```{r faccavfa,eval=TRUE,echo=FALSE}
-# ccaeseg=eigSeg( famask, matrixToImages(t(sccan$eig1),famask), FALSE  )
-# ccaeseg=eigSeg( famask, fcsccan$eigenanatomyimages, FALSE  )
-# plot( famask, ccaeseg, axis=3, nslices=16 )
-```
-
-## Check the CCA regions:CBF
-
-```{r faccavcbf,eval=FALSE,echo=FALSE}
-# ccaeseg=eigSeg( thkmask, ccsccan$eig, FALSE  )
-# plot( thkmask, ccaeseg, axis=3, nslices=16 )
-```
-
-## Quick CCA-based prediction: FA and CBF
-
-```{r facca3cbf,eval=TRUE,echo=FALSE}
-fcsccanmat=fcsccan$eig1
-# fcsccanmat=fcsccanmat/rowSums(fcsccanmat)
-fcsccanproj = famat[haveAllMerge,] %*% ( fcsccanmat )
-fcsccanmat2=fcsccan$eig2
-# fcsccanmat2=fcsccanmat2/rowSums(fcsccanmat2)
-fcsccanproj2 = cbfmat[haveAllMerge,] %*% ( fcsccanmat2 )
-ccadf=data.frame( sdemog, fcsccanproj, fcsccanproj2,
-  gender=demog$Sex[haveAllMerge] )
-lmdl=lm( AgeAtScan ~ ., data=ccadf[traing,c(1,4:7)] )
-mdl=randomForest( AgeAtScan ~., data=ccadf[traing,c(1,4:7)] )
-pviq = predict( lmdl, newdata=ccadf[ testg,c(1,4:7) ] )
-print( mean( abs( pviq - ccadf[testg,]$AgeAtScan) ) )
-cor.test( pviq, ccadf[testg,]$AgeAtScan )
-cor( fcsccanproj , fcsccanproj2 )
-```
-
 
 
 
