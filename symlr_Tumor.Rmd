@@ -57,15 +57,17 @@ for ( i in 1:length( A ) ) {
   regs[[i]]=temp
 }
 initu = initializeSyMLR( A, 2, jointReduction=T, uAlgorithm = 'ica' )
-if ( ! exists( "eType" ) ) eType = 'regression'
+if ( ! exists( "eType" ) ) eType = 'cca'
 sResult = symlr( A, smoothingMatrices=regs,
   sparsenessQuantiles = c(0.0, 0.0, 0.0), # general purpose defaults
   positivities =  c('either','either','either'),
   initialUMatrix = initu, iterations = 50,
+  lineSearchRange = c(-100,100),
   mixAlg = 'pca', orthogonalize = F,
   energyType = eType,
   scale = T,
   verbose = T )
+plot( ts( sResult$totalEnergy) )
 row.names(sResult$u[[1]])=row.names(sgcca.glioma$Y[[1]])
 row.names(sResult$u[[2]])=row.names(sgcca.glioma$Y[[1]])
 # row.names(sResult$u[[3]])=row.names(sgcca.glioma$Y[[1]])
