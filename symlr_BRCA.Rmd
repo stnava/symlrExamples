@@ -65,19 +65,19 @@ regs  = regularizeSyMLR( x, fraction = 0.01, sigma = 2 )
 # if ( ! exists( "myseed" ) )
 myseed = as.numeric( Sys.time()  )
 connex = list( c(2,3), c(1,3), c(1,2) )
+if ( ! exists( "eType" ) ) eType = 'regression'
 t1 = Sys.time()
-if ( ! exists( "sResult" ) )
-  sResult = symlr(  x,
+sResult = symlr(  x,
     regs,
     iterations = 55,
     sparsenessQuantiles = rep( 0.5, length( x ) ),
     positivities = rep( 'positive', length( x ) ),
-    initialUMatrix = initu, verbose = 1,
-    orthogonalize = F,
-    lineSearchRange = c( -1, 1 ) * 1e1,
+    initialUMatrix = ncol(initu), verbose = 1,
+    orthogonalize = T,
+    lineSearchRange = c( -1, 1 ) * 1e2,
     lineSearchTolerance = 1e-6,
-    mixAlg = 'ica',
-    energyType = 'cca',
+    mixAlg = 'avg',
+    energyType = eType,
 #    connectors = connex,
     optimizationStyle = 'mixed',
     constraint = 'none', randomSeed = myseed )

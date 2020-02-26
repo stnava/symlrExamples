@@ -96,6 +96,7 @@ regs[[1]] = diag(ncol(inmats[[1]]))
 initu = # snpd$projections # init with cca
   initializeSyMLR( inmatsScl, nv, jointReduction = T, uAlgorithm = 'random' )
 vinit = NULL
+if ( ! exists( "eType" ) ) eType = 'regression'
 connex = list( c(2), c(1,2) ) # both cca and pca
 sResult = symlr(
   inmatsScl,
@@ -106,11 +107,12 @@ sResult = symlr(
       initialUMatrix = initu,
       vmats = vinit,
       verbose = 1,
+      scale = T,
       orthogonalize = T,
       lineSearchRange = c( -1, 1 ) * 1e1,
       lineSearchTolerance = 1e-6,
-      mixAlg = 'ica',
-      energyType = 'cca',
+      mixAlg = 'avg',
+      energyType = eType,
       connectors = connex,
       constraint = 'none',
       optimizationStyle = 'mixed',
