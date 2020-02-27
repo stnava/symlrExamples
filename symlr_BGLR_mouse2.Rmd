@@ -97,7 +97,7 @@ initu = # snpd$projections # init with cca
   initializeSyMLR( inmatsScl, nv, jointReduction = F, uAlgorithm = 'pca' )
 vinit = NULL
 if ( ! exists( "eType" ) ) eType = 'cca'
-if ( ! exists( "doOrth" ) ) doOrth = FALSE
+if ( ! exists( "doOrth" ) ) doOrth = TRUE
 connex = list( c(2), c(1) ) # both cca and pca
 sResult = symlr(
   inmats,
