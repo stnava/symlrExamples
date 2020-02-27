@@ -202,7 +202,7 @@ if ( ! exists( "mysym" ) | TRUE ) {
       positivities = rep( "positive", length( inmats )),
       lineSearchRange = c( -1, 1 )*1,
       lineSearchTolerance = 1e-4,
-      mixAlg = 'avg', randomSeed = as.numeric(Sys.time()),
+      mixAlg = 'svd', randomSeed = as.numeric(Sys.time()),
       initialUMatrix = 10,  energyType = eType,
       orthogonalize = FALSE,  
       constraint='Stiefel',
@@ -275,6 +275,7 @@ print( summary(lm( pthk[,1] ~  ( pcbf[,2] + pfa[,2] ) + Sex + BV +
 
 ```{r jointstats,echo=FALSE}
 alldf = data.frame( demog[haveAllMerge,], thk=pthk, fa=pfa, cbf=pcbf )
+# alldf = data.frame( demog[haveAllMerge,], thk=svdth[,1:10], fa=svdfa[,1:10], cbf=svdcb[,1:10] )
 alldf = alldf[,c(3,4,20:49)]
 mdl1=lm( AgeAtScan ~ . ,
   data=alldf[,c(1,2)])
@@ -330,9 +331,13 @@ plot_multi_way_importance( importance_frame,  size_measure = "p_value" )
 ## Check the CCA regions for WM
 
 ```{r thkcca4,eval=TRUE,echo=FALSE}
-eImgs = matrixToImages(t(mysym$v[[2]][,1:2]),famask)
-plot( famask, iMath(abs(eImgs[[1]]),"Normalize")*1, window.overlay=c(0.1,1), axis=3, nslices=16 )
-plot( famask, iMath(abs(eImgs[[2]]),"Normalize")*1, window.overlay=c(0.1,1), axis=3, nslices=16 )
+fImgs = matrixToImages(t(mysym$v[[2]][,1:3]),famask)
+cImgs = matrixToImages(t(mysym$v[[3]][,1:2]),thkmask)
+tImgs = matrixToImages(t(mysym$v[[1]][,1:2]),thkmask)
+template = antsImageRead( paste0( "~/code/symlrExamples/", bd, 'PTBP_T1_BrainCerebellum.nii.gz' ) )
+plot( template, iMath(abs(tImgs[[1]]),"Normalize")*1, window.overlay=c(0.1,1), axis=3, nslices=16 )
+plot( template, iMath(abs(fImgs[[3]]),"Normalize")*1, window.overlay=c(0.1,1), axis=3, nslices=16 )
+plot( template, iMath(abs(cImgs[[1]]),"Normalize")*1, window.overlay=c(0.1,1), axis=3, nslices=16 )
 ```
 
 ## Look over cca results
