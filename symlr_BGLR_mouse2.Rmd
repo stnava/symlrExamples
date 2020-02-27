@@ -22,7 +22,7 @@ nfolds<-6
 train<-sample( rep( c(1:nfolds), 1800/nfolds ) )
 train<-( train <= 4 )
 # reset seed to allow exploration of initialization effects
-locseed = 1582667197 # round( as.numeric( Sys.time()  ) )
+locseed = round( as.numeric( Sys.time()  ) )
 set.seed( locseed )
 inmats = list(
   as.matrix(snps[train,]),
@@ -94,7 +94,7 @@ regs[[2]] = diag(ncol(inmats[[2]]))
 regs[[1]] = diag(ncol(inmats[[1]]))
 # if ( ! exists( "initu" ) )
 initu = # snpd$projections # init with cca
-  initializeSyMLR( inmatsScl, nv, jointReduction = F, uAlgorithm = 'ica' )
+  initializeSyMLR( inmatsScl, nv, jointReduction = F, uAlgorithm = 'random' )
 vinit = NULL
 if ( ! exists( "eType" ) ) eType = 'cca'
 connex = list( c(2), c(1,2) ) # both cca and pca
@@ -107,9 +107,9 @@ sResult = symlr(
       initialUMatrix = initu,
       vmats = vinit,
       verbose = 1,
-      scale = "np",
+      scale = 'sqrtnp',
       orthogonalize = T,
-      lineSearchRange = c( -1, 1 ),
+      lineSearchRange = c( -1, 1 ) * 1e2,
       lineSearchTolerance = 1e-6,
       mixAlg = 'ica',
       energyType = eType,
