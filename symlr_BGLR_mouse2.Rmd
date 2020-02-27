@@ -94,22 +94,23 @@ regs[[2]] = diag(ncol(inmats[[2]]))
 regs[[1]] = diag(ncol(inmats[[1]]))
 # if ( ! exists( "initu" ) )
 initu = # snpd$projections # init with cca
-  initializeSyMLR( inmatsScl, nv, jointReduction = F, uAlgorithm = 'random' )
+  initializeSyMLR( inmatsScl, nv, jointReduction = F, uAlgorithm = 'pca' )
 vinit = NULL
 if ( ! exists( "eType" ) ) eType = 'cca'
-connex = list( c(2), c(1,2) ) # both cca and pca
+if ( ! exists( "doOrth" ) ) doOrth = FALSE
+connex = list( c(2), c(1) ) # both cca and pca
 sResult = symlr(
   inmats,
       regs,
-      iterations = 21,
+      iterations = 50,
       sparsenessQuantiles = c(0.5, 0.5), # general purpose defaults
       positivities =  c('positive','either'),
       initialUMatrix = initu,
       vmats = vinit,
       verbose = 1,
-      scale = 'sqrtnp',
-      orthogonalize = T,
-      lineSearchRange = c( -1, 1 ) * 1e2,
+      scale = 'np',
+      orthogonalize = doOrth,
+      lineSearchRange = c( -1, 1 ) * 100,
       lineSearchTolerance = 1e-6,
       mixAlg = 'ica',
       energyType = eType,
