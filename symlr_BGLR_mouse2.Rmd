@@ -97,24 +97,24 @@ initu = # snpd$projections # init with cca
   initializeSyMLR( inmatsScl, nv, jointReduction = F, uAlgorithm = 'pca' )
 vinit = NULL
 if ( ! exists( "eType" ) ) eType = 'cca'
-if ( ! exists( "doOrth" ) ) doOrth = TRUE
+if ( ! exists( "doOrth" ) ) doOrth = FALSE
 connex = list( c(2), c(1) ) # both cca and pca
 sResult = symlr(
   inmats,
       regs,
       iterations = 50,
       sparsenessQuantiles = c(0.5, 0.5), # general purpose defaults
-      positivities =  c('positive','either'),
+      positivities =  c('positive','positive'), # general purpose defaults
       initialUMatrix = initu,
       vmats = vinit,
       verbose = 1,
       scale = 'np',
       orthogonalize = doOrth,
-      lineSearchRange = c( -1, 1 ) * 100,
+      lineSearchRange = c( -1, 1 ) * 1,
       lineSearchTolerance = 1e-6,
       mixAlg = 'ica',
-      energyType = eType,
-      connectors = connex,
+      energyType = 'cca',
+#      connectors = connex,
       constraint = 'none',
       optimizationStyle = 'mixed',
       randomSeed = locseed )
