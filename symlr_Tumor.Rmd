@@ -62,10 +62,10 @@ sResult = symlr( A, smoothingMatrices=regs,
   sparsenessQuantiles = c(0.0, 0.0, 0.0), # general purpose defaults
   positivities =  c('either','either','either'),
   initialUMatrix = initu, iterations = 50,
-  lineSearchRange = c(-100,100),
+  lineSearchRange = c(-1,1),
   mixAlg = 'pca', orthogonalize = F,
   energyType = eType,
-  scale = T,
+  scale = 'np',
   verbose = T )
 plot( ts( sResult$totalEnergy) )
 row.names(sResult$u[[1]])=row.names(sgcca.glioma$Y[[1]])

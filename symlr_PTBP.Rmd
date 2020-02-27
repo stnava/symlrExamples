@@ -195,7 +195,7 @@ if ( ! exists( "eType" ) )  eType = 'lowRank' # choose this for speed b/c p is l
 if ( ! exists( "mysym" ) | TRUE ) {
   mysym = symlr(
       voxmats = inmats, 
-      scale = T,
+      scale = "np",
       smoothingMatrices = smoms,
       iterations = 25,
       sparsenessQuantiles = c(0.9,0.9,0.9),
