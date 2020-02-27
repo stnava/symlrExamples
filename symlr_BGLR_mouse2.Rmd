@@ -94,8 +94,11 @@ regs[[2]] = diag(ncol(inmats[[2]]))
 regs[[1]] = diag(ncol(inmats[[1]]))
 # if ( ! exists( "initu" ) )
 initu = # snpd$projections # init with cca
-  initializeSyMLR( inmatsScl, nv, jointReduction = F, uAlgorithm = 'pca' )
-vinit = NULL
+  initializeSyMLR( inmatsScl, nv, jointReduction = F, uAlgorithm = 'ica' )
+# vinit = list(
+#  t(t(initu[[1]]) %*% inmatsScl[[1]]),
+#  t(t(initu[[2]]) %*% inmatsScl[[2]])
+# )
 if ( ! exists( "eType" ) ) eType = 'cca'
 if ( ! exists( "doOrth" ) ) doOrth = FALSE
 connex = list( c(2), c(1) ) # both cca and pca
@@ -114,7 +117,6 @@ sResult = symlr(
       lineSearchTolerance = 1e-6,
       mixAlg = 'ica',
       energyType = 'cca',
-#      connectors = connex,
       constraint = 'none',
       optimizationStyle = 'mixed',
       randomSeed = locseed )

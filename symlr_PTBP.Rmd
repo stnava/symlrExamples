@@ -191,7 +191,7 @@ if ( ! exists("inmatsrob")) {
 #  inmatsrob=list()
  # for ( k in 1:length( inmats ) ) inmatsrob[[k]] = robustMatrixTransform( inmats[[k]] )
 }
-if ( ! exists( "eType" ) )  eType = 'lowRank' # choose this for speed b/c p is large
+if ( ! exists( "eType" ) )  eType = 'regression' # choose this for speed b/c p is large
 if ( ! exists( "mysym" ) | TRUE ) {
   mysym = symlr(
       voxmats = inmats, 
@@ -202,10 +202,13 @@ if ( ! exists( "mysym" ) | TRUE ) {
       positivities = rep( "positive", length( inmats )),
       lineSearchRange = c( -1, 1 )*1,
       lineSearchTolerance = 1e-4,
-      mixAlg = 'svd', randomSeed = as.numeric(Sys.time()),
-      initialUMatrix = 10,  energyType = eType,
+      mixAlg = 'ica', 
+      randomSeed = as.numeric(Sys.time()),
+      initialUMatrix = 10,  
+      energyType = eType,
       orthogonalize = FALSE,  
-      constraint='Stiefel',
+      optimizationStyle = 'mixed',
+      constraint='none',
       verbose = 1 )
   }
 pthk = inmats[[1]] %*% ( mysym$v[[1]] )
