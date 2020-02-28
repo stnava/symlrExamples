@@ -22,7 +22,7 @@ nfolds<-6
 train<-sample( rep( c(1:nfolds), 1800/nfolds ) )
 train<-( train <= 4 )
 # reset seed to allow exploration of initialization effects
-locseed = round( as.numeric( Sys.time()  ) )
+locseed = 1582667197 # round( as.numeric( Sys.time()  ) )
 set.seed( locseed )
 inmats = list(
   as.matrix(snps[train,]),
@@ -94,29 +94,24 @@ regs[[2]] = diag(ncol(inmats[[2]]))
 regs[[1]] = diag(ncol(inmats[[1]]))
 # if ( ! exists( "initu" ) )
 initu = # snpd$projections # init with cca
-  initializeSyMLR( inmatsScl, nv, jointReduction = F, uAlgorithm = 'ica' )
-# vinit = list(
-#  t(t(initu[[1]]) %*% inmatsScl[[1]]),
-#  t(t(initu[[2]]) %*% inmatsScl[[2]])
-# )
-if ( ! exists( "eType" ) ) eType = 'cca'
-if ( ! exists( "doOrth" ) ) doOrth = FALSE
-connex = list( c(2), c(1) ) # both cca and pca
+  initializeSyMLR( inmatsScl, nv, jointReduction = T, uAlgorithm = 'random' )
+vinit = NULL
+connex = list( c(2), c(1,2) ) # both cca and pca
 sResult = symlr(
-  inmats,
+  inmatsScl,
       regs,
-      iterations = 50,
+      iterations = 21,
       sparsenessQuantiles = c(0.5, 0.5), # general purpose defaults
-      positivities =  c('positive','positive'), # general purpose defaults
+      positivities =  c('positive','either'),
       initialUMatrix = initu,
       vmats = vinit,
       verbose = 1,
-      scale = 'np',
-      orthogonalize = doOrth,
-      lineSearchRange = c( -1, 1 ) * 1,
+      orthogonalize = T,
+      lineSearchRange = c( -1, 1 ) * 1e1,
       lineSearchTolerance = 1e-6,
       mixAlg = 'ica',
       energyType = 'cca',
+      connectors = connex,
       constraint = 'none',
       optimizationStyle = 'mixed',
       randomSeed = locseed )
