@@ -23,6 +23,7 @@ train<-sample( rep( c(1:nfolds), 1800/nfolds ) )
 train<-( train <= 4 )
 # reset seed to allow exploration of initialization effects
 locseed = 1582667197 # round( as.numeric( Sys.time()  ) )
+locseed = round( as.numeric( Sys.time()  ) )
 set.seed( locseed )
 inmats = list(
   as.matrix(snps[train,]),
@@ -42,7 +43,9 @@ if ( ! exists( "snpd" ) ) {
 }
 print( cor.test(preddf, testdf$bmi ) )
 print(paste("Err",  mean(abs(preddf-testdf$bmi))  ) )
+```
 
+```{r sym}
 inmats = list(
   as.matrix(snps[train,]),
   numericalpheno[train,] )
@@ -100,20 +103,21 @@ connex = list( c(2), c(1,2) ) # both cca and pca
 sResult = symlr(
   inmatsScl,
       regs,
-      iterations = 21,
+      iterations = 55,
       sparsenessQuantiles = c(0.5, 0.5), # general purpose defaults
       positivities =  c('positive','either'),
       initialUMatrix = initu,
       vmats = vinit,
       verbose = 1,
       orthogonalize = T,
-      lineSearchRange = c( -1, 1 ) * 1e1,
+      lineSearchRange = c( -1, 1 ) * 1e2,
       lineSearchTolerance = 1e-6,
       mixAlg = 'ica',
       energyType = 'cca',
       connectors = connex,
       constraint = 'none',
       optimizationStyle = 'mixed',
+      expBeta = 0.9,
       randomSeed = locseed )
 # ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||
 ```
