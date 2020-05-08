@@ -167,9 +167,9 @@ if ( ! exists("wcbf") ) {
 
 # Three little modalities jointly
 
-## SyMLR
+## SiMLR
 
-```{r symlr}
+```{r simlr}
 haveAllMerge=( wthk & wfa & wcbf )
 inmats = list( thkmat[haveAllMerge,], famat[haveAllMerge,], cbfmat[haveAllMerge,] )
 if ( ! exists( "svdth" ) ) {
@@ -186,27 +186,26 @@ if ( ! exists( "smoms") ) { # regularization matrices
   smoms[[2]] = knnSmoothingMatrix( spatmat, k = 100, sigma = 20 )
   smoms[[3]] = smoms[[1]]
 }
-if ( ! exists("initu" ) ) initu = initializeSyMLR( inmats, 8, jointReduction = T, uAlgorithm = 'random' )
+if ( ! exists("initu" ) ) initu = initializeSimlr( inmats, 8, jointReduction = T, uAlgorithm = 'random' )
 if ( ! exists("inmatsrob")) {
 #  inmatsrob=list()
  # for ( k in 1:length( inmats ) ) inmatsrob[[k]] = robustMatrixTransform( inmats[[k]] )
 }
 if ( ! exists( "eType" ) )  eType = 'regression' # choose this for speed b/c p is large
 if ( ! exists( "mysym" ) | TRUE ) {
-  mysym = symlr(
-      voxmats = inmats, 
-      scale = "np",
+  mysym = simlr(
+      voxmats = inmats,
       smoothingMatrices = smoms,
       iterations = 25,
       sparsenessQuantiles = c(0.9,0.9,0.9),
       positivities = rep( "positive", length( inmats )),
       lineSearchRange = c( -1, 1 )*1,
       lineSearchTolerance = 1e-4,
-      mixAlg = 'ica', 
+      mixAlg = 'ica',
       randomSeed = as.numeric(Sys.time()),
-      initialUMatrix = 10,  
+      initialUMatrix = 10,
       energyType = eType,
-      orthogonalize = FALSE,  
+      orthogonalize = FALSE,
       optimizationStyle = 'mixed',
       constraint='none',
       verbose = 1 )
