@@ -1,5 +1,5 @@
 ---
-title: "SyMLR: Simulated Data Example"
+title: "SiMLR: Simulated Data Example"
 output: html_document
 ---
 
@@ -20,7 +20,7 @@ library( ANTsR )
      mat1 = (outcome %*% t(outcome1) %*% (outcome1)) %*% view1tx
      mat2 = (outcome %*% t(outcome2) %*% (outcome2)) %*% view2tx
      mat3 = (outcome %*% t(outcome3) %*% (outcome3)) %*% view3tx
-     result = symlr(list( vox = mat1, vox2 = mat2, vox3 = mat3 ),
+     result = simlr(list( vox = mat1, vox2 = mat2, vox3 = mat3 ),
         initialUMatrix = nk , verbose=TRUE, iterations=15  )
      plot( ts( result$totalEnergy ) )
      p1 = mat1 %*% (result$v[[1]])
@@ -30,7 +30,7 @@ library( ANTsR )
      # compare to permuted data
      s1 = sample( 1:nsub)
      s2 = sample( 1:nsub)
-     resultp = symlr(list( vox = mat1, vox2 = mat2[s1,], vox3 = mat3[s2,] ),
+     resultp = simlr(list( vox = mat1, vox2 = mat2[s1,], vox3 = mat3[s2,] ),
         initialUMatrix = nk , verbose=TRUE, iterations=15  )
      p1p = mat1 %*% (resultp$v[[1]])
      p2p = mat2[s1,] %*% (resultp$v[[2]])
