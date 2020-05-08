@@ -1,5 +1,5 @@
 ---
-title: 'The Pediatric Template of Brain Perfusion: SyMLR'
+title: 'The Pediatric Template of Brain Perfusion: SiMLR'
 author: "Brian B. Avants et al."
 date: "`r Sys.Date()`"
 output: html_document
@@ -8,16 +8,18 @@ output: html_document
 ```{r setup,eval=TRUE,results='hide',warning=FALSE,echo=FALSE}
 # set this for your own compilation
 bd="./data/"
-set.seed( Sys.time() )
+set.seed( 919 )
 library( pander )
 library( ggplot2 )
+library( randomForestExplainer )
+library(ANTsR)
+library(visreg)
+library(randomForest)
 ```
 
 ## Basic Setup
 
 ```{r dataio}
-library(ANTsR)
-library(visreg)
 neanatvecs=2
 thkmask=antsImageRead( paste(bd,"ptbp_mask_thickness.nii.gz",sep='') )
 qth=0.05
@@ -186,27 +188,23 @@ if ( ! exists( "smoms") ) { # regularization matrices
   smoms[[2]] = knnSmoothingMatrix( spatmat, k = 100, sigma = 20 )
   smoms[[3]] = smoms[[1]]
 }
-if ( ! exists("initu" ) ) initu = initializeSimlr( inmats, 8, jointReduction = T, uAlgorithm = 'random' )
-if ( ! exists("inmatsrob")) {
-#  inmatsrob=list()
- # for ( k in 1:length( inmats ) ) inmatsrob[[k]] = robustMatrixTransform( inmats[[k]] )
-}
-if ( ! exists( "eType" ) )  eType = 'regression' # choose this for speed b/c p is large
-if ( ! exists( "mysym" ) | TRUE ) {
+if ( ! exists("initu" ) )
+  initu = initializeSimlr( inmats, 8, jointReduction = T, uAlgorithm = 'randomProjection' )
+if ( ! exists( "mysym" ) ) {
   mysym = simlr(
       voxmats = inmats,
       smoothingMatrices = smoms,
-      iterations = 25,
+      iterations = 5,
       sparsenessQuantiles = c(0.9,0.9,0.9),
       positivities = rep( "positive", length( inmats )),
       lineSearchRange = c( -1, 1 )*1,
       lineSearchTolerance = 1e-4,
       mixAlg = 'ica',
       randomSeed = as.numeric(Sys.time()),
-      initialUMatrix = 10,
-      energyType = eType,
+      initialUMatrix = initu,
+      energyType = 'regression',
       orthogonalize = FALSE,
-      optimizationStyle = 'mixed',
+      optimizationStyle = 'greedy',
       constraint='none',
       verbose = 1 )
   }
@@ -278,7 +276,7 @@ print( summary(lm( pthk[,1] ~  ( pcbf[,2] + pfa[,2] ) + Sex + BV +
 ```{r jointstats,echo=FALSE}
 alldf = data.frame( demog[haveAllMerge,], thk=pthk, fa=pfa, cbf=pcbf )
 # alldf = data.frame( demog[haveAllMerge,], thk=svdth[,1:10], fa=svdfa[,1:10], cbf=svdcb[,1:10] )
-alldf = alldf[,c(3,4,20:49)]
+alldf = alldf[,c(3,4,20:min(c(ncol(alldf),49) )) ]
 mdl1=lm( AgeAtScan ~ . ,
   data=alldf[,c(1,2)])
 mdl2=lm( AgeAtScan ~ . ,
@@ -293,9 +291,6 @@ Use random forests to decide how relevant each
 modality is to reproducible predictions of age.
 
 First get the data organized.
-```{r orgpred}
-library(randomForest)
-```
 
 
 
@@ -317,7 +312,6 @@ visreg::visreg(vmdl)
 ## RF importance plot
 
 ```{r rfimp,echo=FALSE}
-library( randomForestExplainer )
 importance_frame <- measure_importance( mdl )
 plot_multi_way_importance( importance_frame,  size_measure = "p_value" )
 # impdf=data.frame(
@@ -330,25 +324,25 @@ plot_multi_way_importance( importance_frame,  size_measure = "p_value" )
 
 
 
-## Check the CCA regions for WM
+## Check the SiMLR regions of the brain
 
-```{r thkcca4,eval=TRUE,echo=FALSE}
+```{r thksimlr4,eval=TRUE,echo=FALSE}
 fImgs = matrixToImages(t(mysym$v[[2]][,1:3]),famask)
 cImgs = matrixToImages(t(mysym$v[[3]][,1:2]),thkmask)
 tImgs = matrixToImages(t(mysym$v[[1]][,1:2]),thkmask)
 template = antsImageRead( paste0( "~/code/symlrExamples/", bd, 'PTBP_T1_BrainCerebellum.nii.gz' ) )
-plot( template, iMath(abs(tImgs[[1]]),"Normalize")*1, window.overlay=c(0.1,1), axis=3, nslices=16 )
-plot( template, iMath(abs(fImgs[[3]]),"Normalize")*1, window.overlay=c(0.1,1), axis=3, nslices=16 )
-plot( template, iMath(abs(cImgs[[1]]),"Normalize")*1, window.overlay=c(0.1,1), axis=3, nslices=16 )
+plot( template, abs(tImgs[[1]])/max(abs(tImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
+plot( template, abs(fImgs[[1]])/max(abs(fImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
+plot( template, abs(cImgs[[1]])/max(abs(cImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
 ```
 
-## Look over cca results
+## Look over simlr results
 
 Which demographic variables match which imaging variables?
 
-```{r thkcca2,eval=FALSE}
-rownames( sccan$eig2 )=colnames( sdemog )
-knitr::kable( sccan$eig2 )
+```{r thksimlr2,eval=FALSE}
+rownames( ssimlrn$eig2 )=colnames( sdemog )
+knitr::kable( ssimlrn$eig2 )
 ```
 
 
