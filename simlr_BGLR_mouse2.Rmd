@@ -55,16 +55,15 @@ inmats = list(
 regs = list()
 regs[[2]] = diag(ncol(inmats[[2]]))
 regs[[1]] = diag(ncol(inmats[[1]]))
-# if ( ! exists( "initu" ) )
-initu = # snpd$projections # init with cca
-  initializeSimlr( inmats, nv, jointReduction = T, uAlgorithm = 'ica' )
+initu = initializeSimlr( inmats, nv, jointReduction = T, uAlgorithm = 'ica' )
 sResult = simlr(
   inmats,
       regs,
       iterations = 55,
       initialUMatrix = initu,
+      energyType='cca',
       verbose = TRUE,
-      randomSeed = locseed )
+      randomSeed = 121 )
 # ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||
 ```
 
@@ -72,15 +71,15 @@ Demonstrate post-hoc descriptive statistics and prediction of BMI
 from SNPs.
 
 ```{r postsym}
-svx = predictSimlr( inmatsScl, sResult )
+svx = predictSimlr( list( scale(inmats[[1]],T,T), scale(inmats[[2]],T,T) ), sResult )
 print( svx[1] )
 print((svx$initialErrors/svx$finalErrors)^-1)
 # layout( matrix( 1:4, nrow=1 ))
 plot( ts( sResult$totalEnergy ) )
 straindf<-data.frame( bmi=numericalpheno[ train,3] ,
-   snpse=as.matrix( snps[train, ] ) %*% as.matrix( sResult$v[[1]] ) )
+   snpse=as.matrix( snps[train, ] ) %*% as.matrix( sResult$v[[1]] )/norm( sResult$v[[1]],"F") )
 stestdf <-data.frame( bmi=numericalpheno[!train,3] ,
-   snpse=as.matrix( snps[!train,] ) %*% as.matrix( sResult$v[[1]] ) )
+   snpse=as.matrix( snps[!train,] ) %*% as.matrix( sResult$v[[1]] )/norm( sResult$v[[1]],"F")  )
 myrf<-mlFun( bmi ~ . , data=straindf[,] )
 spreddf <- predict( myrf, newdata=stestdf )
 print( cor.test( spreddf, testdf$bmi ) )
