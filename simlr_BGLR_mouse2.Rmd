@@ -63,7 +63,7 @@ sResult = simlr(
       initialUMatrix = initu,
       energyType='cca',
       verbose = TRUE,
-      randomSeed = 121 )
+      randomSeed = 101 )
 # ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||
 ```
 
