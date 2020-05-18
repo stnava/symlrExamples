@@ -2,7 +2,7 @@ library(ANTsR)
 nsub = 100 # number of subjects
 npix = round(c(2000,1005,500)/1)  # size of matrices
 nk = 10    # n components
-mx='svd'   # mixing method
+mx = 'ica'   # mixing method
 nits = 20  # n-iterations
 nz=0       #
 nzs=1.5
@@ -45,14 +45,11 @@ for ( sim in 1:nsims ) {
     r2[ r2<cthresh] =  0
     r3 = cor( mat3 )
     r3[ r3<cthresh] =  0
-    result = symlr(
+    result = simlr(
       list( vox = mat1[train,], vox2 = mat2[train,], vox3 = mat3[train,] ),
       smoothingMatrices = list( r1, r2, r3 ),
       positivities = 'positive',
       sparsenessQuantiles = c(0.9,0.9,0.9),
-      lineSearchRange = c( -1, 1 ) * 1e4,
-      lineSearchTolerance = c( 0.001 ),
-      orthogonalize = orth,
       initialUMatrix = nk-1 , verbose=T, iterations=nits, mixAlg=mx  )
     p1 = mat1 %*% abs(result$v[[1]])
     p2 = mat2 %*% abs(result$v[[2]])
@@ -70,13 +67,13 @@ for ( sim in 1:nsims ) {
     pmat1=mat1[s1,]
     pmat2=mat2[s2,]
     pmat3=mat3[s3,]
-    resultp = symlr(list(
+    resultp = simlr(list(
       vox = pmat1[train,], vox2 = pmat2[train,], vox3 = pmat3[train,] ),
-      smoothingMatrices=list(r1,r2,r3), positivities = 'positive',
+      smoothingMatrices = list( r1, r2, r3 ),
+      positivities = 'positive',
       sparsenessQuantiles = c(0.9,0.9,0.9),
-      lineSearchRange = c( -10, 10 ),
-      lineSearchTolerance = c( 0.001 ), orthogonalize=orth,
-      initialUMatrix = nk-1 , verbose=F, iterations=nits, mixAlg=mx  )
+      initialUMatrix = nk-1 , verbose=T, iterations=nits, mixAlg=mx  )
+
     p1p = pmat1 %*% abs(resultp$v[[1]])
     p2p = pmat2 %*% abs(resultp$v[[2]])
     p3p = pmat3 %*% abs(resultp$v[[3]])

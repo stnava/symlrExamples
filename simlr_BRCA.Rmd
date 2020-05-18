@@ -38,6 +38,7 @@ sResult = simlr(  x,
     positivities = rep("either", length( x ) ),
     iterations = 55,
     initialUMatrix = initu, verbose = 1,
+    connectors = connex,
     randomSeed = myseed )
 t2 = Sys.time()
 svx = predictSimlr( x, sResult )

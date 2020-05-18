@@ -20,6 +20,7 @@ library( ANTsR )
      mat1 = (outcome %*% t(outcome1) %*% (outcome1)) %*% view1tx
      mat2 = (outcome %*% t(outcome2) %*% (outcome2)) %*% view2tx
      mat3 = (outcome %*% t(outcome3) %*% (outcome3)) %*% view3tx
+     # simplest call - just choose the number of components and set iterations > 50
      result = simlr(list( vox = mat1, vox2 = mat2, vox3 = mat3 ),
         initialUMatrix = nk , verbose=TRUE, iterations=55  )
      plot( ts( result$totalEnergy ) )
