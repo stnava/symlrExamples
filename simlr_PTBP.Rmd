@@ -208,18 +208,9 @@ if ( ! exists( "mysym" ) ) {
       voxmats = inmats,
       smoothingMatrices = smoms,
       iterations = 50,
-      sparsenessQuantiles = rep(0.9,3),
-      positivities = rep( "positive", length( inmats )),
-      lineSearchRange = c( -1, 1 )*1,
-      lineSearchTolerance = 1e-4,
-      mixAlg = 'ica',
+      sparsenessQuantiles = rep(0.9,3), # fewer voxels per component compared to default
       randomSeed = as.numeric(Sys.time()),
       initialUMatrix = initu,
-      energyType = 'regression',
-      orthogonalize = FALSE,
-      optimizationStyle = 'lineSearch',
-      constraint='none',
-      expBeta = 0.5,
       verbose = 1 )
   }
 pthk = inmats[[1]] %*% ( mysym$v[[1]] )
