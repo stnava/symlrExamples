@@ -52,30 +52,18 @@ inmats = list(
 
 
 # same thing with SiMLR
-if ( ! exists("inmatsScl") ) {
-  inmatsScl = list()
-  for ( i in 1:length( inmats ) )
-    inmatsScl[[i]] = ( scale( inmats[[i]], T, T ) )
-  }
-
 regs = list()
 regs[[2]] = diag(ncol(inmats[[2]]))
 regs[[1]] = diag(ncol(inmats[[1]]))
 # if ( ! exists( "initu" ) )
 initu = # snpd$projections # init with cca
-  initializeSimlr( inmatsScl, nv, jointReduction = T, uAlgorithm = 'random' )
-vinit = NULL
-connex = list( c(2), c(1,2) ) # both cca and pca
+  initializeSimlr( inmats, nv, jointReduction = T, uAlgorithm = 'ica' )
 sResult = simlr(
-  inmatsScl,
+  inmats,
       regs,
       iterations = 55,
-      initialUMatrix = nv,
-      verbose = 2,
-      orthogonalize = TRUE,
-      lineSearchRange = c( -1, 1 ),
-      lineSearchTolerance = 1e-6,
-      energyType = 'cca',
+      initialUMatrix = initu,
+      verbose = TRUE,
       randomSeed = locseed )
 # ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||
 ```

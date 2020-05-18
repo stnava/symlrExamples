@@ -193,23 +193,22 @@ if ( ! exists( "svdth" ) ) {
   svdcb = svd(inmats[[2]],nu=20,nv=0)$u
   svdfa = svd(inmats[[3]],nu=20,nv=0)$u
 }
-for ( k in 1:length( inmats ) ) inmats[[k]] = inmats[[k]] / norm( inmats[[k]], "F" )
 if ( ! exists( "smoms") ) { # regularization matrices
   smoms = list()
   spatmat = t( imageDomainToSpatialMatrix( thkmask, thkmask ) )
-  smoms[[1]] = knnSmoothingMatrix( spatmat, k = 100, sigma = 20 )
+  smoms[[1]] = knnSmoothingMatrix( spatmat, k = 27, sigma = 20 )
   spatmat = t( imageDomainToSpatialMatrix( famask, famask ) )
-  smoms[[2]] = knnSmoothingMatrix( spatmat, k = 100, sigma = 20 )
+  smoms[[2]] = knnSmoothingMatrix( spatmat, k = 27, sigma = 20 )
   smoms[[3]] = smoms[[1]]
 }
 if ( ! exists("initu" ) )
-  initu = initializeSimlr( inmats, 8, jointReduction = T, uAlgorithm = 'randomProjection' )
+  initu = initializeSimlr( inmats, 8, jointReduction = T, uAlgorithm = 'ica' )
 if ( ! exists( "mysym" ) ) {
   mysym = simlr(
       voxmats = inmats,
       smoothingMatrices = smoms,
-      iterations = 5,
-      sparsenessQuantiles = c(0.9,0.9,0.9),
+      iterations = 50,
+      sparsenessQuantiles = rep(0.9,3),
       positivities = rep( "positive", length( inmats )),
       lineSearchRange = c( -1, 1 )*1,
       lineSearchTolerance = 1e-4,
@@ -218,8 +217,9 @@ if ( ! exists( "mysym" ) ) {
       initialUMatrix = initu,
       energyType = 'regression',
       orthogonalize = FALSE,
-      optimizationStyle = 'greedy',
+      optimizationStyle = 'lineSearch',
       constraint='none',
+      expBeta = 0.5,
       verbose = 1 )
   }
 pthk = inmats[[1]] %*% ( mysym$v[[1]] )
