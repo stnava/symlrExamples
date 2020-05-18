@@ -58,14 +58,12 @@ regs[[1]] = diag(ncol(inmats[[1]]))
 # if ( ! exists( "initu" ) )
 initu = # snpd$projections # init with cca
   initializeSimlr( inmats, nv, jointReduction = T, uAlgorithm = 'ica' )
-vinit = NULL
 sResult = simlr(
   inmats,
       regs,
       iterations = 55,
       initialUMatrix = initu,
-      verbose = 2,
-      energyType = 'cca',
+      verbose = TRUE,
       randomSeed = locseed )
 # ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||
 ```
