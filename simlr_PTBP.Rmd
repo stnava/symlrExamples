@@ -5,6 +5,20 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+Similarity-driven multiview linear reconstruction can be used
+in a manner similar to the SVD.  However, rather than running the
+SVD independently on each modality, we run it jointly on all modalities.
+This may provide a decomposition that reveals underlying structure in the
+data that spans modalities.  In some cases, this latent space may provide
+more powerful predictors for other outcomes that are reflected in
+all of the measured modalities.  Furthermore, `simlr` predictors are sparse
+and (optionally) constrained to be unsigned.  This may allow them to reveal
+information that is more focal than the global view provided by SVD.
+
+Here, we compare `simlr` to `svd` for predicting age and IQ in the pediatric
+template of brain perfusion dataset.  The PTBP is freely available on Figshare.
+
+
 ```{r setup,eval=TRUE,results='hide',warning=FALSE,echo=FALSE}
 # set this for your own compilation
 bd="./data/"
