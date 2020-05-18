@@ -53,18 +53,12 @@ p1
 regs=list()
 for ( i in 1:length( A ) ) {
   temp=cor( A[[i]])
-  temp[temp<0.5]=0
+  temp[temp<0.8]=0
   regs[[i]]=temp
 }
 initu = initializeSimlr( A, 2, jointReduction=T, uAlgorithm = 'ica' )
-if ( ! exists( "eType" ) ) eType = 'cca'
 sResult = simlr( A, smoothingMatrices=regs,
-  sparsenessQuantiles = c(0.0, 0.0, 0.0), # general purpose defaults
-  positivities =  c('either','either','either'),
   initialUMatrix = initu, iterations = 50,
-  lineSearchRange = c(-1,1),
-  mixAlg = 'pca', orthogonalize = F,
-  energyType = eType,
   verbose = T )
 plot( ts( sResult$totalEnergy) )
 row.names(sResult$u[[1]])=row.names(sgcca.glioma$Y[[1]])
@@ -72,8 +66,8 @@ row.names(sResult$u[[2]])=row.names(sgcca.glioma$Y[[1]])
 # row.names(sResult$u[[3]])=row.names(sgcca.glioma$Y[[1]])
 temp1 = sResult$u[[1]] # A[[1]] %*% sResult$v[[1]]
 temp2 = sResult$u[[2]] # A[[2]] %*% sResult$v[[2]]
-temp1 = A[[1]] %*% sResult$v[[1]]
-temp2 =  A[[2]] %*% sResult$v[[2]]
+temp1 = A[[1]] %*% (sResult$v[[1]]/norm( sResult$v[[1]], "F"))
+temp2 =  A[[2]] %*% (sResult$v[[2]]/norm( sResult$v[[2]], "F"))
 row.names(temp1)=row.names(temp2)=row.names(sgcca.glioma$Y[[1]])
 df1 = data.frame(Loc = Loc,
   GE1 = temp1[, 1],
