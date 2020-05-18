@@ -188,13 +188,13 @@ if ( ! exists( "smoms") ) { # regularization matrices
   smoms[[3]] = smoms[[1]]
 }
 if ( ! exists("initu" ) )
-  initu = initializeSimlr( inmats, 8, jointReduction = T, uAlgorithm = 'randomProjection' )
+  initu = initializeSimlr( inmats, 8, jointReduction = T, uAlgorithm = 'ica' )
 if ( ! exists( "mysym" ) ) {
   mysym = simlr(
       voxmats = inmats,
       smoothingMatrices = smoms,
       iterations = 50,
-      sparsenessQuantiles = rep(0.5,3),
+      sparsenessQuantiles = rep(0.9,3),
       positivities = rep( "positive", length( inmats )),
       lineSearchRange = c( -1, 1 )*1,
       lineSearchTolerance = 1e-4,
