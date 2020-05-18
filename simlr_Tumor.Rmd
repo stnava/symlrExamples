@@ -59,12 +59,7 @@ for ( i in 1:length( A ) ) {
 initu = initializeSimlr( A, 2, jointReduction=T, uAlgorithm = 'ica' )
 if ( ! exists( "eType" ) ) eType = 'cca'
 sResult = simlr( A, smoothingMatrices=regs,
-  sparsenessQuantiles = c(0.0, 0.0, 0.0), # general purpose defaults
-  positivities =  c('either','either','either'),
   initialUMatrix = initu, iterations = 50,
-  lineSearchRange = c(-1,1),
-  mixAlg = 'pca', orthogonalize = F,
-  energyType = eType,
   verbose = T )
 plot( ts( sResult$totalEnergy) )
 row.names(sResult$u[[1]])=row.names(sgcca.glioma$Y[[1]])
