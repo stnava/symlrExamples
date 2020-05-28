@@ -113,3 +113,16 @@ rmarkdown::render("simlr_BRCA.Rmd")
 
 - Result: SiMLR and RGCCA both are able to perform supervised clustering successfully
 as shown by the group separation plot.
+
+
+## Run all examples
+
+Once you have the above setup:
+
+```
+rmarkdown::render("simlr_Tumor.Rmd")
+rmarkdown::render("simlr_BRCA.Rmd")
+rmarkdown::render("simlr_Simulation.Rmd")
+rmarkdown::render("simlr_BGLR_mouse2.Rmd")
+rmarkdown::render("simlr_PTBP.Rmd")
+```
