@@ -49,6 +49,7 @@ The data for the glioma example is hosted publicly.  Download the file
 then call `R CMD INSTALL gliomaData_0.4.tar.gz` to make it accessible in your
 `R` environment.
 
+- Result: a simple unsupervised clustering plot.
 
 
 2. Mouse snps and BMI:  Regression
@@ -61,6 +62,8 @@ rmarkdown::render("simlr_BGLR_mouse2.Rmd")
 ```
 
 The data is available in the `R` package `BGLR`.
+
+- Result: a random forest based prediction of body mass index from SNPs in test data.
 
 
 3. Pediatric template of brain perfusion (PTBP): SiMLR and SVD Component
@@ -77,6 +80,10 @@ to cognition and related measurements.
 rmarkdown::render("simlr_PTBP.Rmd")
 ```
 
+- Result: a random forest and linear regression based prediction of a variety
+of univariate outcomes, along with visualization.  Long-running example.
+
+
 4. Simulation data: Decode known latent signal and perform permutation testing
 on the relationship to determine empirical distribution (significance).  Compare with SVD.
 
@@ -91,6 +98,9 @@ Note: every run re-simulates the input data, re-runs SiMLR and SVD and compares
 the findings to the same applied to permuted data.  In a real example, you would
 only run SiMLR and SVD on permuted data in each loop.
 
+- Result: Demonstrate well-above chance recovery of latent signal competitive
+with SVD.
+
 
 5. BRCA: Data clustering
 
@@ -101,5 +111,5 @@ BRCA/gene-related data.
 rmarkdown::render("simlr_BRCA.Rmd")
 ```
 
-Result: SiMLR and RGCCA both are able to perform supervised clustering successfully
+- Result: SiMLR and RGCCA both are able to perform supervised clustering successfully
 as shown by the group separation plot.
