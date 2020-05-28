@@ -15,6 +15,7 @@ R packages
 library(ANTsR)  # github/neuroconductor
 library(ggplot2)  # CRAN
 library(RGCCA)  # CRAN
+library(BGLR)  # CRAN
 library(r.jive) # external package with example data for BRCA => try github
 library(ggfortify) # CRAN
 library(pander)  # CRAN
