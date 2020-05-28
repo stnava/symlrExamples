@@ -1,14 +1,14 @@
 library(ANTsR)
+compareToJointSVD = FALSE
 nsub = 100 # number of subjects
 npix = round(c(2000,1005,500)/1)  # size of matrices
 nk = 10    # n components
 mx = 'ica'   # mixing method
 nits = 20  # n-iterations
-nz=0       #
-nzs=1.5
-nzs2=1
-orth = T   # orthogonalize?
-train = c( rep(T,80) ,rep(F,20))
+nz = 0       # simulated signal parameter - not sensitive to this choice
+nzs = 1.5    # simulated signal parameter - not sensitive to this choice
+nzs2 = 1     # simulated signal parameter - not sensitive to this choice
+train = c( rep(T,80) ,rep(F,20)) # train and test split
 test = !train
 nsims = 20 # number of simulation runs
 nna = rep( NA, nsims )
@@ -48,9 +48,8 @@ for ( sim in 1:nsims ) {
     result = simlr(
       list( vox = mat1[train,], vox2 = mat2[train,], vox3 = mat3[train,] ),
       smoothingMatrices = list( r1, r2, r3 ),
-      positivities = 'positive',
-      sparsenessQuantiles = c(0.9,0.9,0.9),
       initialUMatrix = nk-1 , verbose=T, iterations=nits, mixAlg=mx  )
+
     p1 = mat1 %*% abs(result$v[[1]])
     p2 = mat2 %*% abs(result$v[[2]])
     p3 = mat3 %*% abs(result$v[[3]])
@@ -70,13 +69,12 @@ for ( sim in 1:nsims ) {
     resultp = simlr(list(
       vox = pmat1[train,], vox2 = pmat2[train,], vox3 = pmat3[train,] ),
       smoothingMatrices = list( r1, r2, r3 ),
-      positivities = 'positive',
-      sparsenessQuantiles = c(0.9,0.9,0.9),
       initialUMatrix = nk-1 , verbose=T, iterations=nits, mixAlg=mx  )
 
     p1p = pmat1 %*% abs(resultp$v[[1]])
     p2p = pmat2 %*% abs(resultp$v[[2]])
     p3p = pmat3 %*% abs(resultp$v[[3]])
+
     temp=data.frame( outc = outcome[,1], p1p[,1:2], p2p[,1:2], p3p[,1:2]   )
     mdlprm=lm( outc~.,data=temp[train,])
     rsqprm = cor( temp$outc[test], predict(mdlprm,newdata=temp[test,]) )
@@ -87,7 +85,7 @@ for ( sim in 1:nsims ) {
     p3svd = mat3 %*% svd( mat3[train,], nu=0, nv=nk )$v
     temp=data.frame( outc = outcome[,1], p1svd[,1:2], p2svd[,1:2], p3svd[,1:2] )
 
-if ( FALSE ) {
+if ( compareToJointSVD ) {
     psvd = cbind( mat1,mat2,mat3) %*%
       svd( cbind( mat1,mat2,mat3), nu=0, nv=nk )$v
     p1svd = psvd[,1:2]
@@ -129,5 +127,5 @@ plot( h1, col=rgb(0,0,1,1/4), xlim=myxl, main='Simulation data: SyMILR vs SVD vs
 plot( h2, col=rgb(1,0,0,1/4), xlim=myxl, add=T )
 plot( h3, col=rgb(0,1,0,1/4), xlim=myxl, add=T )
 dev.off()
-
 print(t.test(simdatafrm[,nms[1]],simdatafrm[,nms[2]],paired=T))
+print(t.test(simdatafrm$symMeanCorrs,simdatafrm$svdMeanCorrs,paired=T))
