@@ -1,5 +1,6 @@
 library(ANTsR)
 compareToJointSVD = FALSE
+if ( ! exists( "energyType" ) ) energyType = 'regression'
 nsub = 100 # number of subjects
 npix = round(c(2000,1005,500)/1)  # size of matrices
 nk = 10    # n components
@@ -48,6 +49,7 @@ for ( sim in 1:nsims ) {
     result = simlr(
       list( vox = mat1[train,], vox2 = mat2[train,], vox3 = mat3[train,] ),
       smoothingMatrices = list( r1, r2, r3 ),
+      energyType = energyType,
       initialUMatrix = nk-1 , verbose=T, iterations=nits, mixAlg=mx  )
 
     p1 = mat1 %*% abs(result$v[[1]])
@@ -66,9 +68,17 @@ for ( sim in 1:nsims ) {
     pmat1=mat1[s1,]
     pmat2=mat2[s2,]
     pmat3=mat3[s3,]
+    r1 = cor( pmat1 ) # regularization
+    cthresh=0.66
+    r1[ r1<cthresh] =  0
+    r2 = cor( pmat2 )
+    r2[ r2<cthresh] =  0
+    r3 = cor( pmat3 )
+    r3[ r3<cthresh] =  0
     resultp = simlr(list(
       vox = pmat1[train,], vox2 = pmat2[train,], vox3 = pmat3[train,] ),
       smoothingMatrices = list( r1, r2, r3 ),
+      energyType = energyType,
       initialUMatrix = nk-1 , verbose=T, iterations=nits, mixAlg=mx  )
 
     p1p = pmat1 %*% abs(resultp$v[[1]])

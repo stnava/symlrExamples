@@ -127,3 +127,11 @@ rmarkdown::render("simlr_Simulation.Rmd")
 rmarkdown::render("simlr_BGLR_mouse2.Rmd")
 rmarkdown::render("simlr_PTBP.Rmd")
 ```
+
+Once the above complete, you can inspect their `html` output.
+
+Run the simulation study:
+
+```
+source("simulationStudy.R")
+```
