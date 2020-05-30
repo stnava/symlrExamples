@@ -1,5 +1,5 @@
 library(ANTsR)
-compareToJointSVD = FALSE
+compareToJointSVD = TRUE
 if ( ! exists( "energyType" ) ) energyType = 'regression'
 nsub = 100 # number of subjects
 npix = round(c(2000,1005,500)/1)  # size of matrices
@@ -56,7 +56,7 @@ for ( sim in 1:nsims ) {
     p2 = mat2 %*% abs(result$v[[2]])
     p3 = mat3 %*% abs(result$v[[3]])
 
-    temp=data.frame( outc = outcome[,1], p1[,1:2], p2[,1:2], p3[,1:2] )
+    temp=data.frame( outc = outcome[,1], P1=p1[,1:2], P2=p2[,1:2], P3=p3[,1:2] )
     mdlsym=lm( outc~.,data=temp[train,])
     summary(mdlsym)
     rsqsym = cor( temp$outc[test], predict(mdlsym,newdata=temp[test,]) )
@@ -68,16 +68,16 @@ for ( sim in 1:nsims ) {
     pmat1=mat1[s1,]
     pmat2=mat2[s2,]
     pmat3=mat3[s3,]
-    r1 = cor( pmat1 ) # regularization
+    r1p = cor( pmat1 ) # regularization
     cthresh=0.66
-    r1[ r1<cthresh] =  0
-    r2 = cor( pmat2 )
-    r2[ r2<cthresh] =  0
-    r3 = cor( pmat3 )
-    r3[ r3<cthresh] =  0
+    r1p[ r1p<cthresh] =  0
+    r2p = cor( pmat2 )
+    r2p[ r2p<cthresh] =  0
+    r3p = cor( pmat3 )
+    r3p[ r3p<cthresh] =  0
     resultp = simlr(list(
       vox = pmat1[train,], vox2 = pmat2[train,], vox3 = pmat3[train,] ),
-      smoothingMatrices = list( r1, r2, r3 ),
+      smoothingMatrices = list( r1p, r2p, r3p ),
       energyType = energyType,
       initialUMatrix = nk-1 , verbose=T, iterations=nits, mixAlg=mx  )
 
