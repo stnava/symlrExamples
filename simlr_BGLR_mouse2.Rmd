@@ -10,6 +10,7 @@ see [https://cran.r-project.org/web/packages/BGLR/BGLR.pdf](https://cran.r-proje
 set.seed( 1 )
 library( ANTsR )
 library( ggplot2 )
+if ( ! exists( "energyType" ) ) energyType = 'cca'
 rf<-usePkg('randomForest')
 bg<-usePkg('BGLR')
 mlFun <- lm
@@ -61,7 +62,7 @@ sResult = simlr(
       regs,
       iterations = 55,
       initialUMatrix = initu,
-      energyType='cca',
+      energyType = energyType,
       verbose = TRUE,
       randomSeed = 101 )
 # ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||

@@ -120,6 +120,7 @@ as shown by the group separation plot.
 Once you have the above setup:
 
 ```
+energyType = 'regression'
 rmarkdown::render("simlr_Tumor.Rmd")
 rmarkdown::render("simlr_BRCA.Rmd")
 rmarkdown::render("simlr_Simulation.Rmd")

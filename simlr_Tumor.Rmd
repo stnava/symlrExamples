@@ -12,6 +12,7 @@ library( ggplot2 )
 library( RGCCA )
 rf<-usePkg('randomForest')
 bg<-usePkg('BGLR')
+if ( ! exists( "energyType" ) ) energyType = 'regression'
 mlFun <- lm
 mlFun <- randomForest
 # different data ....
@@ -59,6 +60,7 @@ for ( i in 1:length( A ) ) {
 initu = initializeSimlr( A, 2, jointReduction=T, uAlgorithm = 'ica' )
 sResult = simlr( A, smoothingMatrices=regs,
   initialUMatrix = initu, iterations = 50,
+  energyType = energyType,
   verbose = T )
 plot( ts( sResult$totalEnergy) )
 row.names(sResult$u[[1]])=row.names(sgcca.glioma$Y[[1]])

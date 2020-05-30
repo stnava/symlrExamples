@@ -186,6 +186,7 @@ if ( ! exists("wcbf") ) {
 ## SiMLR
 
 ```{r simlr}
+if ( ! exists( "energyType" ) ) energyType = 'regression'
 haveAllMerge=( wthk & wfa & wcbf )
 inmats = list( thkmat[haveAllMerge,], famat[haveAllMerge,], cbfmat[haveAllMerge,] )
 if ( ! exists( "svdth" ) ) {
@@ -211,6 +212,7 @@ if ( ! exists( "mysym" ) ) {
       sparsenessQuantiles = rep(0.9,3), # fewer voxels per component compared to default
       randomSeed = as.numeric(Sys.time()),
       initialUMatrix = initu,
+      energyType = energyType,
       verbose = 1 )
   }
 pthk = inmats[[1]] %*% ( mysym$v[[1]] )

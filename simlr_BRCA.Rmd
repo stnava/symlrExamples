@@ -8,6 +8,7 @@ output: html_document
 # https://cran.r-project.org/web/packages/r.jive/vignettes/BRCA_Example.html
 library( r.jive )
 library( ANTsR )
+if ( ! exists( "energyType" ) ) energyType = 'regression'
 data( BRCA_data )
 x = Data
 for ( k in 1:length( x ) ) x[[k]] = t( x[[k]] )
@@ -39,6 +40,7 @@ sResult = simlr(  x,
     iterations = 55,
     initialUMatrix = initu, verbose = 1,
     connectors = connex,
+    energyType = energyType,
     randomSeed = myseed )
 t2 = Sys.time()
 svx = predictSimlr( x, sResult )
