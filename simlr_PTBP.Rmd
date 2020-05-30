@@ -202,8 +202,8 @@ if ( ! exists( "smoms") ) { # regularization matrices
   smoms[[2]] = knnSmoothingMatrix( spatmat, k = 27, sigma = 20 )
   smoms[[3]] = smoms[[1]]
 }
-if ( ! exists("initu" ) )
-  initu = initializeSimlr( inmats, 8, jointReduction = T, uAlgorithm = 'ica' )
+
+initu = initializeSimlr( inmats, 8, jointReduction = T, uAlgorithm = 'ica' )
 if ( ! exists( "mysym" ) ) {
   mysym = simlr(
       voxmats = inmats,
