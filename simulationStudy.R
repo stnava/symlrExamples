@@ -1,5 +1,6 @@
 library(ANTsR)
 compareToJointSVD = TRUE
+doCorruption = TRUE
 if ( ! exists( "energyType" ) ) energyType = 'regression'
 nsub = 100 # number of subjects
 npix = round(c(2000,1005,500)/1)  # size of matrices
@@ -38,6 +39,11 @@ for ( sim in 1:nsims ) {
     outcomex=outcome
     outcomex[,reo]=sample(outcomex[,reo])
     mat3 = (outcomex %*% mixmats[sample(1:nrow(mixmats)),] %*% view3tx)
+
+    if ( doCorruption ) {
+      # corrupt half of matrix 3
+      mat3[ ,250:500] = matrix( rnorm( prod(dim(mat3[ ,250:500])), 10, 100 ), nrow=100)
+    }
 
     r1 = cor( mat1 ) # regularization
     cthresh=0.66

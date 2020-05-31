@@ -32,12 +32,12 @@ One can access `ANTsR` via docker container.  Try these resources:
 
 ## Examples
 
-Example scripts and pointers to data for testing simlr and comparing its
+Example scripts and pointers to data for testing SiMLR and comparing its
 application to related methods.
 
 1. Glioma data: Clustering
 
-This 3-view example illustrates how we can cluster data based on simlr dimensionality
+This 3-view example illustrates how we can cluster data based on SiMLR dimensionality
 reduction.
 
 ```
@@ -56,6 +56,8 @@ then call `R CMD INSTALL gliomaData_0.4.tar.gz` to make it accessible in your
 
 This 2-view genotype-phenotype example shows how a low-dimensional model may be
 learned from high-dimensional data to predict an outcome in a testing set.
+We demonstrate how to select from multiple initializations and the difference
+between regression and CCA energies.
 
 ```
 rmarkdown::render("simlr_BGLR_mouse2.Rmd")
@@ -64,7 +66,7 @@ rmarkdown::render("simlr_BGLR_mouse2.Rmd")
 The data is available in the `R` package `BGLR`.
 
 - Result: a random forest based prediction of body mass index from SNPs in test data.
-
+Long-running example.
 
 3. Pediatric template of brain perfusion (PTBP): SiMLR and SVD Component
 regression for brain age and related measurements
@@ -72,7 +74,7 @@ regression for brain age and related measurements
 download [this data](https://figshare.com/articles/PTBP_Matrices/11900229)
 to the data directory.
 
-here, we use simlr in "discovery" mode to learn sparse representations of
+here, we use SiMLR in "discovery" mode to learn sparse representations of
 cross-modality brain networks that we may then interrogate for relationships
 to cognition and related measurements.
 
@@ -87,7 +89,7 @@ of univariate outcomes, along with visualization.  Long-running example.
 4. Simulation data: Decode known latent signal and perform permutation testing
 on the relationship to determine empirical distribution (significance).  Compare with SVD.
 
-simulate known signal and recover it with simlr - also demonstrates a simple
+simulate known signal and recover it with SiMLR - also demonstrates a simple
 comparison to SVD and to permuted data.
 
 ```
@@ -135,3 +137,5 @@ Run the simulation study:
 ```
 source("simulationStudy.R")
 ```
+
+The simulation study has several parameter the user may explore for fun.

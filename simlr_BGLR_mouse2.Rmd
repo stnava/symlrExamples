@@ -7,7 +7,6 @@ see [https://cran.r-project.org/web/packages/BGLR/BGLR.pdf](https://cran.r-proje
 
 
 ```{r setup}
-set.seed( 1 )
 library( ANTsR )
 library( ggplot2 )
 if ( ! exists( "energyType" ) ) energyType = 'cca'
@@ -19,13 +18,10 @@ data(mice)
 snps<-mice.X
 numericalpheno<-as.matrix( mice.pheno[,c(4,5,13,15) ] )
 numericalpheno<-residuals( lm( numericalpheno ~ as.factor(mice.pheno$Litter) ) )
-nfolds<-6
+nfolds<-8
+set.seed( 1 )
 train<-sample( rep( c(1:nfolds), 1800/nfolds ) )
-train<-( train <= 4 )
-# reset seed to allow exploration of initialization effects
-locseed = 1582667197 # round( as.numeric( Sys.time()  ) )
-locseed = round( as.numeric( Sys.time()  ) )
-set.seed( locseed )
+train<-( train <= 6 )
 inmats = list(
   as.matrix(snps[train,]),
   numericalpheno[train,] )
@@ -34,14 +30,14 @@ nits = 10
 if ( ! exists( "snpd" ) ) {
   snpd<-sparseDecom2( inmatrix=inmats, nvecs=nv, sparseness=c( 0.5, -0.5 ),
     its=3, ell1=0.1 , z=-1, verbose = F )
-  j = 3
-  traindf<-data.frame( bmi=numericalpheno[ train,j] ,
+  }
+j = 3
+traindf<-data.frame( bmi=numericalpheno[ train,j] ,
      snpse=as.matrix( snps[train, ] ) %*% as.matrix( snpd$eig1 ) )
-  testdf <-data.frame( bmi=numericalpheno[!train,j] ,
+testdf <-data.frame( bmi=numericalpheno[!train,j] ,
      snpse=as.matrix( snps[!train,] ) %*% as.matrix( snpd$eig1 ) )
-  myrf<-mlFun( bmi ~ . , data=traindf )
-  preddf<-predict(myrf, newdata=testdf )
-}
+myrf<-mlFun( bmi ~ . , data=traindf )
+preddf<-predict(myrf, newdata=testdf )
 print( cor.test(preddf, testdf$bmi ) )
 print(paste("Err",  mean(abs(preddf-testdf$bmi))  ) )
 ```
@@ -54,17 +50,27 @@ inmats = list(
 
 # same thing with SiMLR
 regs = list()
-regs[[2]] = diag(ncol(inmats[[2]]))
 regs[[1]] = diag(ncol(inmats[[1]]))
-initu = initializeSimlr( inmats, nv, jointReduction = T, uAlgorithm = 'ica' )
-sResult = simlr(
-  inmats,
-      regs,
-      iterations = 55,
-      initialUMatrix = initu,
-      energyType = energyType,
-      verbose = TRUE,
-      randomSeed = 101 )
+regs[[2]] = diag(ncol(inmats[[2]]))
+bestVarx = 0
+for ( k in 1:2 ) {
+  initu = initializeSimlr( inmats, 2, jointReduction = T, uAlgorithm = 'ica' )
+  temp = simlr(
+    inmats,
+        regs,
+        iterations = 55,
+        initialUMatrix = initu,
+        energyType = energyType,
+        verbose = TRUE,
+        randomSeed = Sys.time() )
+  svx = predictSimlr( list( scale(inmats[[1]],T,T), scale(inmats[[2]],T,T) ), temp )
+  if ( sum( svx$varx ) > bestVarx ) {
+    sResult = temp
+    bestVarx = sum( svx$varx )
+    }
+  }
+svx = predictSimlr( list( scale(inmats[[1]],T,T), scale(inmats[[2]],T,T) ), sResult )
+
 # ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||
 ```
 
@@ -72,9 +78,7 @@ Demonstrate post-hoc descriptive statistics and prediction of BMI
 from SNPs.
 
 ```{r postsym}
-svx = predictSimlr( list( scale(inmats[[1]],T,T), scale(inmats[[2]],T,T) ), sResult )
 print( svx[1] )
-print((svx$initialErrors/svx$finalErrors)^-1)
 # layout( matrix( 1:4, nrow=1 ))
 plot( ts( sResult$totalEnergy ) )
 straindf<-data.frame( bmi=numericalpheno[ train,3] ,
