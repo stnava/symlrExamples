@@ -7,63 +7,70 @@ see [https://cran.r-project.org/web/packages/BGLR/BGLR.pdf](https://cran.r-proje
 
 
 ```{r setup}
+library( randomForestExplainer )
 library( ANTsR )
 library( ggplot2 )
-if ( ! exists( "energyType" ) ) energyType = 'cca'
+if ( ! exists( "energyType" ) ) energyType = 'regression'
 rf<-usePkg('randomForest')
 bg<-usePkg('BGLR')
 mlFun <- lm
 mlFun <- randomForest
 data(mice)
 snps<-mice.X
-numericalpheno<-as.matrix( mice.pheno[,c(4,5,13,15) ] )
-numericalpheno<-residuals( lm( numericalpheno ~ as.factor(mice.pheno$Litter) ) )
 nfolds<-8
 set.seed( 1 )
-train<-sample( rep( c(1:nfolds), 1800/nfolds ) )
-train<-( train <= 6 )
+train <- caret::createDataPartition( mice.pheno[,"Obesity.BMI"], p=0.8)$Resample1
+nms = c( "Obesity.BMI"      ,  "Obesity.BodyLength", "EndNormalBW", "GENDER"  )
+numericalpheno<-data.matrix( mice.pheno[ , nms ] )
+numericalpheno[,"GENDER"] = numericalpheno[,"GENDER"] - 1
+temp = data.frame( vox = rnorm( length(train)), mice.pheno[train,nms ] )
+temp = lm( vox ~ ( Obesity.BMI  + EndNormalBW + Obesity.BodyLength ) * GENDER, data=temp )
+mdlMat = (model.matrix( temp ))[,-1]
 inmats = list(
   as.matrix(snps[train,]),
-  numericalpheno[train,] )
-nv = 2
-nits = 10
-if ( ! exists( "snpd" ) ) {
+  mdlMat )
+BMINAME="Obesity.BMI"
+if ( FALSE ) {
+  nv = 2
+  nits = 10
   snpd<-sparseDecom2( inmatrix=inmats, nvecs=nv, sparseness=c( 0.5, -0.5 ),
-    its=3, ell1=0.1 , z=-1, verbose = F )
+      its=3, ell1=0.1 , z=-1, verbose = F )
+  traindf<-data.frame( bmi=numericalpheno[ train,BMINAME] ,
+       snpse=as.matrix( snps[train, ] ) %*% as.matrix( snpd$eig1 ) )
+  testdf <-data.frame( bmi=numericalpheno[-train,BMINAME] ,
+       snpse=as.matrix( snps[-train,] ) %*% as.matrix( snpd$eig1 ) )
+  myrf<-mlFun( bmi ~ . , data=traindf )
+  preddf<-predict(myrf, newdata=testdf )
+  print( cor.test(preddf, testdf$bmi ) )
+  print(paste("Err",  mean(abs(preddf-testdf$bmi))  ) )
   }
-j = 3
-traindf<-data.frame( bmi=numericalpheno[ train,j] ,
-     snpse=as.matrix( snps[train, ] ) %*% as.matrix( snpd$eig1 ) )
-testdf <-data.frame( bmi=numericalpheno[!train,j] ,
-     snpse=as.matrix( snps[!train,] ) %*% as.matrix( snpd$eig1 ) )
-myrf<-mlFun( bmi ~ . , data=traindf )
-preddf<-predict(myrf, newdata=testdf )
-print( cor.test(preddf, testdf$bmi ) )
-print(paste("Err",  mean(abs(preddf-testdf$bmi))  ) )
 ```
 
 ```{r sym}
-inmats = list(
-  as.matrix(snps[train,]),
-  numericalpheno[train,] )
-
-
 # same thing with SiMLR
 regs = list()
+# demonstrate use of regularization of the high-dimensional matrix
 regs[[1]] = diag(ncol(inmats[[1]]))
-regs[[2]] = diag(ncol(inmats[[2]]))
+# regs = regularizeSimlr( inmats, c( 25, 1 ), sigma = c( 10, 10 ) )
+regs[[2]] = cor(inmats[[2]])
+regs[[2]][regs[[2]]<0.8]=0
+temp = regs[[2]]
+temp[ temp == 0 ] = NA
+library( plot.matrix )
+plot( temp, main='Regularization for supervising matrix.')
 bestVarx = 0
+nEmbed = 3
 for ( k in 1:2 ) {
-  initu = initializeSimlr( inmats, 2, jointReduction = T, uAlgorithm = 'ica' )
   temp = simlr(
     inmats,
         regs,
         iterations = 55,
-        initialUMatrix = initu,
+        initialUMatrix = svd(mdlMat, nu=3)$u,
         energyType = energyType,
         verbose = TRUE,
         randomSeed = Sys.time() )
   svx = predictSimlr( list( scale(inmats[[1]],T,T), scale(inmats[[2]],T,T) ), temp )
+  print( svx$varx )
   if ( sum( svx$varx ) > bestVarx ) {
     sResult = temp
     bestVarx = sum( svx$varx )
@@ -81,16 +88,26 @@ from SNPs.
 print( svx[1] )
 # layout( matrix( 1:4, nrow=1 ))
 plot( ts( sResult$totalEnergy ) )
-straindf<-data.frame( bmi=numericalpheno[ train,3] ,
+straindf<-data.frame( bmi=numericalpheno[ train,BMINAME] , G=numericalpheno[ train,"GENDER"],
    snpse=as.matrix( snps[train, ] ) %*% as.matrix( sResult$v[[1]] )/norm( sResult$v[[1]],"F") )
-stestdf <-data.frame( bmi=numericalpheno[!train,3] ,
-   snpse=as.matrix( snps[!train,] ) %*% as.matrix( sResult$v[[1]] )/norm( sResult$v[[1]],"F")  )
-myrf<-mlFun( bmi ~ . , data=straindf[,] )
+stestdf <-data.frame( bmi=numericalpheno[-train,BMINAME] , G=numericalpheno[ -train,"GENDER"],
+   snpse=as.matrix( snps[-train,] ) %*% as.matrix( sResult$v[[1]] )/norm( sResult$v[[1]],"F")  )
+myrf<-mlFun( bmi ~ . , data=straindf[,], localImp = TRUE )
 spreddf <- predict( myrf, newdata=stestdf )
-print( cor.test( spreddf, testdf$bmi ) )
-print(paste("Err",  mean(abs(spreddf-testdf$bmi))  ) )
-plot( preddf, testdf$bmi, xlim=c(-8,8),ylim=c(-8,8))
-plot( spreddf, testdf$bmi, xlim=c(-8,8),ylim=c(-8,8))
+print( cor.test( spreddf, stestdf$bmi ) )
+print(paste("Err",  mean(abs(spreddf-stestdf$bmi))  ) )
+plot( spreddf, stestdf$bmi ) #, xlim=c(-8,8),ylim=c(-8,8))
+plot( spreddf, stestdf$bmi) #  xlim=c(-8,8),ylim=c(-8,8))
+# plot_multi_way_importance( importance_frame,  size_measure = "p_value" )
+# plot_multi_way_importance(importance_frame, x_measure = "mse_increase", y_measure = "node_purity_increase", size_measure = "p_value", no_of_labels = 5)
+importance_frame <- measure_importance( myrf )
+plot_multi_way_importance( importance_frame,
+  size_measure = "p_value" )
+# importance_frame <- measure_importance( myrf, measures=c("p_value", "mse_increase","node_purity_increase","mean_min_depth") )
+# plot_multi_way_importance( importance_frame,
+#  x_measure = "mse_increase",#
+#  y_measure = "node_purity_increase",
+#  size_measure = "p_value", no_of_labels = 3)
 ```
 
 comparison to RGCCA
@@ -102,16 +119,21 @@ library( RGCCA )
 cca.with.rgcca = rgcca(
   A = inmats,
   C = matrix(c(0, 1, 1, 0), 2, 2),
-  tau = c(0.1, 0.1), ncomp = c(2,2), verbose = FALSE )
-scca = sgcca( A = inmats, C=matrix(c(0, 1, 1, 0), 2, 2), c1 = c(.5,.5), ncomp = c(2, 2),
-    scheme = "centroid", scale = TRUE, verbose = FALSE)
+  tau = c(0.1, 0.1), ncomp = c( nEmbed, nEmbed ), verbose = FALSE )
+# scca = sgcca( A = inmats, C=matrix(c(0, 1, 1, 0), 2, 2), c1 = c(.5,.5), ncomp = c(2, 2),
+#    scheme = "centroid", scale = TRUE, verbose = FALSE)
 wsol = cca.with.rgcca
-straindf<-data.frame( bmi=numericalpheno[ train,3] ,
+straindf<-data.frame( bmi=numericalpheno[ train,BMINAME], G=numericalpheno[ train,"GENDER"] ,
    snpse=as.matrix( snps[train, ] ) %*% as.matrix( wsol$a[[1]] ) )
-stestdf <-data.frame( bmi=numericalpheno[!train,3] ,
-   snpse=as.matrix( snps[!train,] ) %*% as.matrix( wsol$a[[1]] ) )
-myrf<-mlFun( bmi ~ . , data=straindf[,] )
+stestdf <-data.frame( bmi=numericalpheno[-train,BMINAME], G=numericalpheno[ -train,"GENDER"] ,
+   snpse=as.matrix( snps[-train,] ) %*% as.matrix( wsol$a[[1]] ) )
+myrf<-mlFun( bmi ~ . , data=straindf[,], localImp = TRUE )
 spreddf <- predict( myrf, newdata=stestdf )
-print( cor.test( spreddf, testdf$bmi ) )
-print(paste("RGCCA Err",  mean(abs(spreddf-testdf$bmi))  ) )
+plot( spreddf, stestdf$bmi) #  xlim=c(-8,8),ylim=c(-8,8))
+print( cor.test( spreddf, stestdf$bmi ) )
+print(paste("RGCCA Err",  mean(abs(spreddf-stestdf$bmi))  ) )
+importance_frame <- measure_importance( myrf )
+plot_multi_way_importance( importance_frame,
+  size_measure = "p_value" )
+# plot_multi_way_importance( importance_frame,  size_measure = "p_value" )
 ```

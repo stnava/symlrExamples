@@ -1,7 +1,25 @@
 library(ANTsR)
 compareToJointSVD = TRUE
 doCorruption = TRUE
+nSimlrEmbeddings = 16
 if ( ! exists( "energyType" ) ) energyType = 'regression'
+simlrRankEstimate <- function( targetVarx = 0.95, ... ) {
+  # just run one permutation in order to get a baseline estimate
+  j1 = scale( cbind( ... ), T, T )
+  svd1 = svd( j1  )$d
+  # how many do we need to explain XX% variance?
+  varx = cumsum( svd1 ) / sum( svd1 )
+  wv = min( which( varx >= targetVarx ) )
+  j1p = scale( matrix( j1[ sample( prod( dim( j1 ) ) ) ], nrow=nrow(j1) ), T, T )
+  svdperm = svd( j1p )$d
+  varxp = cumsum( svdperm ) / sum( svdperm )
+  myrankComp = svd1 > svdperm
+  rm( j1, j1p )
+  gc()
+  return( list( svdD_original = svd1, svdD_perm = svdperm,
+    varxComparison = myrankComp, suggestedRank = max( which(myrankComp[1:wv]) ) ) )
+}
+
 nsub = 100 # number of subjects
 npix = round(c(2000,1005,500)/1)  # size of matrices
 nk = 10    # n components
@@ -39,6 +57,15 @@ for ( sim in 1:nsims ) {
     outcomex=outcome
     outcomex[,reo]=sample(outcomex[,reo])
     mat3 = (outcomex %*% mixmats[sample(1:nrow(mixmats)),] %*% view3tx)
+    # add noise to each matrix
+    mat1 = mat1 + matrix( rnorm( prod(dim(mat1)), 0, 0.25 ), nrow=nsub)
+    mat2 = mat2 + matrix( rnorm( prod(dim(mat2)), 0, 0.25 ), nrow=nsub)
+    mat3 = mat3 + matrix( rnorm( prod(dim(mat3)), 0, 0.25 ), nrow=nsub)
+
+    if ( sim == 1 ) {
+      myranker = simlrRankEstimate( 0.90, mat1, mat2, mat3 )
+      myranker$suggestedRank
+    }
 
     if ( doCorruption ) {
       # corrupt half of matrix 3
@@ -56,7 +83,10 @@ for ( sim in 1:nsims ) {
       list( vox = mat1[train,], vox2 = mat2[train,], vox3 = mat3[train,] ),
       smoothingMatrices = list( r1, r2, r3 ),
       energyType = energyType,
-      initialUMatrix = nk-1 , verbose=T, iterations=nits, mixAlg=mx  )
+      initialUMatrix = nSimlrEmbeddings,
+      verbose=T, iterations=nits, mixAlg=mx  )
+    pred = predictSimlr( list(
+      vox = mat1[train,], vox2 = mat2[train,], vox3 = mat3[train,] ), result )
 
     p1 = mat1 %*% abs(result$v[[1]])
     p2 = mat2 %*% abs(result$v[[2]])
@@ -85,7 +115,14 @@ for ( sim in 1:nsims ) {
       vox = pmat1[train,], vox2 = pmat2[train,], vox3 = pmat3[train,] ),
       smoothingMatrices = list( r1p, r2p, r3p ),
       energyType = energyType,
-      initialUMatrix = nk-1 , verbose=T, iterations=nits, mixAlg=mx  )
+      initialUMatrix = nSimlrEmbeddings,
+      verbose = F, iterations=nits, mixAlg=mx  )
+    predp = predictSimlr( list(
+      vox = pmat1[train,], vox2 = pmat2[train,], vox3 = pmat3[train,] ), resultp )
+
+#    print( sort(pred$aggregateTstats[1,], decreasing = T ) > sort(predp$aggregateTstats[1,], decreasing = T ) )
+#    print( sort(pred$aggregateTstats[2,], decreasing = T ) > sort(predp$aggregateTstats[2,], decreasing = T ) )
+#    print( sort(pred$aggregateTstats[3,], decreasing = T ) > sort(predp$aggregateTstats[3,], decreasing = T ) )
 
     p1p = pmat1 %*% abs(resultp$v[[1]])
     p2p = pmat2 %*% abs(resultp$v[[2]])
@@ -120,6 +157,33 @@ simdatafrm[sim,] = c(
   rsqprm
   )
   print( simdatafrm[sim,] )
+
+# plot( ts( colMeans( pred$aggregateTstats )[1:5]) )
+  if ( sim == 1 & FALSE ) {
+    resultFull = result
+    nv = ncol( resultFull$v[[1]] )
+    varxsums = c()
+    for ( maxk in 2:nv ) {
+      result = resultFull
+      inmats = list(
+        vox = mat1[train,], vox2 = mat2[train,], vox3 = mat3[train,] )
+      for ( k in 1:length( inmats ) ) {
+        result$u[[k]] = inmats[[k]] %*% result$v[[k]][,1:maxk]
+        }
+      pred = predictSimlr( inmats, result )
+      pred$uOrder
+      # reorder simlr output
+      for ( k in 1:length( inmats ) ) {
+        result$v[[k]] = result$v[[k]][,pred$uOrder]
+        result$u[[k]] = inmats[[k]] %*% result$v[[k]][,1:maxk]
+      }
+      pred2 = predictSimlr( inmats, result )
+      print( maxk )
+      print( pred$varx )
+      print( pred2$varx )
+      varxsums[maxk-1] = sum( pred2$varx )
+      }
+  }
 }
 
 nms=c("symMeanCorrs","svdMeanCorrs","prmMeanCorrs")

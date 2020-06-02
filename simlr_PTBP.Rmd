@@ -185,14 +185,36 @@ if ( ! exists("wcbf") ) {
 
 ## SiMLR
 
-```{r simlr}
+```{r estimateRank}
 if ( ! exists( "energyType" ) ) energyType = 'regression'
 haveAllMerge=( wthk & wfa & wcbf )
 inmats = list( thkmat[haveAllMerge,], famat[haveAllMerge,], cbfmat[haveAllMerge,] )
+simlrRankEstimate <- function( targetVarx = 0.95, ... ) {
+  # just run one permutation in order to get a baseline estimate
+  j1 = scale( cbind( ... ), T, T )
+  svd1 = svd( j1  )$d
+  # how many do we need to explain XX% variance?
+  varx = cumsum( svd1 ) / sum( svd1 )
+  wv = min( which( varx >= targetVarx ) )
+  j1p = scale( matrix( j1[ sample( prod( dim( j1 ) ) ) ], nrow=nrow(j1) ), T, T )
+  svdperm = svd( j1p )$d
+  varxp = cumsum( svdperm ) / sum( svdperm )
+  myrankComp = svd1 > svdperm
+  rm( j1, j1p )
+  gc()
+  return( list( svdD_original = svd1, svdD_perm = svdperm,
+    varxComparison = myrankComp, suggestedRank = max( which(myrankComp[1:wv]) ) ) )
+}
+if ( ! exists( "rankData" ) )
+  rankData = simlrRankEstimate( 0.90, inmats[[1]], inmats[[2]], inmats[[3]] )
+```
+
+
+```{r simlr}
 if ( ! exists( "svdth" ) ) {
-  svdth = svd(inmats[[1]],nu=20,nv=0)$u
-  svdcb = svd(inmats[[2]],nu=20,nv=0)$u
-  svdfa = svd(inmats[[3]],nu=20,nv=0)$u
+  svdth = svd(inmats[[1]],nu=rankData$suggestedRank,nv=0)$u
+  svdcb = svd(inmats[[2]],nu=rankData$suggestedRank,nv=0)$u
+  svdfa = svd(inmats[[3]],nu=rankData$suggestedRank,nv=0)$u
 }
 if ( ! exists( "smoms") ) { # regularization matrices
   smoms = list()
@@ -203,44 +225,59 @@ if ( ! exists( "smoms") ) { # regularization matrices
   smoms[[3]] = smoms[[1]]
 }
 
-initu = initializeSimlr( inmats, 8, jointReduction = T, uAlgorithm = 'ica' )
+initu = initializeSimlr( inmats, rankData$suggestedRank, jointReduction = T, uAlgorithm = 'ica' )
 if ( ! exists( "mysym" ) ) {
   mysym = simlr(
       voxmats = inmats,
       smoothingMatrices = smoms,
       iterations = 50,
       sparsenessQuantiles = rep(0.9,3), # fewer voxels per component compared to default
-      randomSeed = as.numeric(Sys.time()),
+      randomSeed = 98,
       initialUMatrix = initu,
       energyType = energyType,
       verbose = 1 )
   }
+######
+```
+
+Predict SiMLR post-processing.
+
+```{r predictSiMLR}
+if ( FALSE ) {
+  for ( k in 1:length( inmats ) ) {
+    mysym$u[[k]] = inmats[[k]] %*% mysym$v[[k]]
+    }
+  pred = predictSimlr( inmats, mysym )
+  # reorder simlr output
+  for ( k in 1:length( mysym$v ) ) {
+    mysym$v[[k]] = mysym$v[[k]][,pred$uOrder]
+    mysym$u[[k]] = inmats[[k]] %*% mysym$v[[k]]
+  }
+  pred2 = predictSimlr( inmats, mysym )
+}
 pthk = inmats[[1]] %*% ( mysym$v[[1]] )
 pfa = inmats[[2]] %*% ( mysym$v[[2]] )
 pcbf = inmats[[3]] %*% ( mysym$v[[3]] )
 nmm=c("thk","fa","pcbf")
-######
 ```
 
-
+Look at the `simlr` embeddings in comparison to SVD in terms of
+overall regression fit to the data.
 
 ```{r brainAge}
-ss=1:8
+ss=1:4
 svdlr = svd( cbind(pthk,pfa,pcbf)  )$u
 svdlr2 = svd( cbind(svdth,svdcb,svdfa)  )$u
+simlrembeddings = cbind( pthk[,ss],  pcbf[,ss], pfa[,ss] )
 m1 = lm( AgeAtScan ~   Sex, data = demog[haveAllMerge,] )
-m2 = lm( AgeAtScan ~  ( pthk[,ss] + pcbf[,ss] + pfa[,ss] ) + Sex, data = demog[haveAllMerge,] )
-m2 = lm( AgeAtScan ~  svdlr[,ss] + Sex, data = demog[haveAllMerge,] )
-print( anova( m1, m2  ) )
+m2 = lm( AgeAtScan ~  simlrembeddings + Sex, data = demog[haveAllMerge,] )
+m3 = lm( AgeAtScan ~ svdlr2[,1:ncol(simlrembeddings)] + Sex, data = demog[haveAllMerge,] )
 print(mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m2))))
-m3 = lm( AgeAtScan ~ svdlr2[,ss] + Sex, data = demog[haveAllMerge,] )
-print( anova( m1, m3  ) )
-mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m3)))
+print(mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m3))))
 ```
 
 
 ```{r VIQ}
-ss = 1:2 # look at top two components from all 3 modalities
 m1 = lm( Verbal.IQ ~   Sex + AgeAtScan , data = demog[haveAllMerge,] )
 m2 = lm( Verbal.IQ ~  ( pthk[,ss] +  pfa[,ss]  +pcbf[,ss]) + Sex +  AgeAtScan , data = demog[haveAllMerge,] )
 print( anova( m1, m2  ) )
@@ -255,12 +292,14 @@ m2 = lm( Teen.Ladder.SES.score ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex + st
 print( anova( m1, m2  ) )
 ```
 
+Compare `simlr` embeddings to SVD in terms of relationship with IQ.
 
 ```{r FIQ}
 m1 = lm( FullScaleIQ ~   Sex + AgeAtScan, data = demog[haveAllMerge,] )
 m2 = lm( FullScaleIQ ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
-# m2 = lm( FullScaleIQ ~  ( svdth[,ss] + svdcb[,ss]+ svdfa[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
 print( anova( m1, m2  ) )
+m3 = lm( FullScaleIQ ~  ( svdth[,ss] + svdcb[,ss]+ svdfa[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
+print( anova( m1, m3  ) )
 # print( summary(m1) )
 # print( summary(m2) )
 ```
@@ -272,7 +311,7 @@ pander( m2 )
 
 
 ```{r sanitycheck}
-print( summary(lm( pthk[,1] ~  ( pcbf[,2] + pfa[,2] ) + Sex + BV +
+print( summary(lm( pthk[,2] ~  ( pcbf[,2] + pfa[,2] ) + Sex + BV +
   AgeAtScan, data = demog[haveAllMerge,] )) )
 # plot( thkmask, makeImage( thkmask,  abs(mysym$v[[1]][,1]) ) )
 ```
