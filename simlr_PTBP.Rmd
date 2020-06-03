@@ -219,9 +219,9 @@ if ( ! exists( "svdth" ) ) {
 if ( ! exists( "smoms") ) { # regularization matrices
   smoms = list()
   spatmat = t( imageDomainToSpatialMatrix( thkmask, thkmask ) )
-  smoms[[1]] = knnSmoothingMatrix( spatmat, k = 27, sigma = 20 )
+  smoms[[1]] = knnSmoothingMatrix( spatmat, k = 5^3, sigma = 20 )
   spatmat = t( imageDomainToSpatialMatrix( famask, famask ) )
-  smoms[[2]] = knnSmoothingMatrix( spatmat, k = 27, sigma = 20 )
+  smoms[[2]] = knnSmoothingMatrix( spatmat, k = 5^3, sigma = 20 )
   smoms[[3]] = smoms[[1]]
 }
 
@@ -243,7 +243,7 @@ if ( ! exists( "mysym" ) ) {
 Predict SiMLR post-processing.
 
 ```{r predictSiMLR}
-if ( FALSE ) {
+if ( TRUE ) {
   for ( k in 1:length( inmats ) ) {
     mysym$u[[k]] = inmats[[k]] %*% mysym$v[[k]]
     }
