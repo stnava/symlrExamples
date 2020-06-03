@@ -49,14 +49,14 @@ regs[[1]][regs[[1]]<corThresh[1]]=0
 regs[[1]] = as( regs[[1]], "sparseMatrix" )
 # regs = regularizeSimlr( inmats, c( 55, 1 ), sigma = c( 10, 10 ) )
 regs[[2]] = cor(inmats[[2]])
-# regs[[2]][regs[[2]]<corThresh[2]]=0
-# regs[[2]] = as( regs[[2]], "sparseMatrix" )
-library( plot.matrix )
-image( regs[[2]], main='Regularization matrix for supervising variables related to BMI and gender.')
-image( regs[[1]][1:250,1:250], main='Corner of regularization matrix for SNPs.')
+regs[[2]][regs[[2]]<corThresh[2]]=0
+regs[[2]] = as( regs[[2]], "sparseMatrix" )
+# library( plot.matrix )
+# image( regs[[2]], main='Regularization matrix for supervising variables related to BMI and gender.')
+# image( regs[[1]][1:250,1:250], main='Corner of regularization matrix for SNPs.')
 bestVarx = 0
 nEmbed = 3
-mysq = c( 0.9, 0.5 )
+mysq = c( 0.95, 0.5 )
 if ( ! exists( "snpd" ) )
   snpsvd = prcomp( inmats[[1]], rank. = nEmbed )
 for ( k in 1:5 ) { # take best result over multiple initial starting points
@@ -104,6 +104,25 @@ plot_multi_way_importance( importance_frame, size_measure = "p_value" )
 #  x_measure = "mse_increase",
 #  y_measure = "no_of_nodes",
 ```
+
+LD for the selected SNPs.
+
+```{r myLD}
+
+wvec = abs( sResult$v[[1]][,3] )
+wvecTh = quantile( wvec, 0.9995 )
+selector = wvec > wvecTh
+mySelected = rownames( sResult$v[[1]] )[ selector ]
+www = which( selector )
+subsnps = snps[,www]
+myldSel = LD(as.bed.matrix( subsnps ), lim=c(1,ncol(subsnps)) ) # expensive to compute
+# pdf( "~/code/navy/PING/myldsel.pdf", width=6, height=6 )
+# LD.plot( myldSel )
+# dev.off()
+
+
+```
+
 
 comparison to RGCCA
 
