@@ -12,16 +12,18 @@ require( gliomaData ) # see Below
 R packages
 
 ```
-library(ANTsR)  # github/neuroconductor
-library(ggplot2)  # CRAN
-library(RGCCA)  # CRAN
-library(BGLR)  # CRAN
-library(r.jive) # external package with example data for BRCA => try github
-library(ggfortify) # CRAN
-library(pander)  # CRAN
-library(randomForestExplainer) # CRAN
-library(visreg) # CRAN
-library(randomForest) # CRAN
+library( r.jive ) # external package with example data for BRCA => try github
+library( ANTsR )  # github/neuroconductor
+library( ggplot2 )  # CRAN
+library( RGCCA )  # CRAN
+library( BGLR )  # CRAN
+library( ggfortify ) # CRAN
+library( pander )  # CRAN ... as the rest
+library( randomForestExplainer )
+library( visreg )
+library( randomForest )
+library( rtemis )
+library( gaston )
 ```
 
 ## Docker
