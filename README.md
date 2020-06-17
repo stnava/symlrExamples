@@ -12,7 +12,9 @@ require( gliomaData ) # see Below
 R packages
 
 ```
-library( r.jive ) # external package with example data for BRCA => try github
+library( r.jive ) # external package with example data for BRCA => try github if not on CRAN
+# devtools::install_github( "cran/r.jive" )
+devtools::install_github( 'neurodata/lol', build_vignettes=TRUE, force=TRUE )  # install lol with the vignettes
 library( ANTsR )  # github/neuroconductor
 library( ggplot2 )  # CRAN
 library( RGCCA )  # CRAN
@@ -24,6 +26,7 @@ library( visreg )
 library( randomForest )
 library( rtemis )
 library( gaston )
+library( gridExtra )
 ```
 
 ## Docker
@@ -119,11 +122,27 @@ rmarkdown::render("simlr_BRCA.Rmd")
 as shown by the group separation plot.
 
 
+
+6. LOL: Supervised dimensionality reduction with vector supervision
+
+demonstrates data-driven supervised clustering and variance explained in comparison
+to another CCA variant provided by LOL.
+
+```
+rmarkdown::render("compare_to_lolR.Rmd")
+```
+
+- Result: Demonstrates coding for vector class-based supervision and the
+impact of regularization choices on outcomes in simulated data.
+
+
 ## Run all examples
 
 Once you have the above setup:
 
 ```
+energyType = 'cca'
+rmarkdown::render("compare_to_lolR.Rmd")
 energyType = 'regression'
 rmarkdown::render("simlr_Tumor.Rmd")
 rmarkdown::render("simlr_BRCA.Rmd")

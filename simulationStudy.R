@@ -1,6 +1,7 @@
 library(ANTsR)
 compareToJointSVD = TRUE
-doCorruption = TRUE
+doCorruption = FALSE
+usePCA = TRUE
 nSimlrEmbeddings = 16
 if ( ! exists( "energyType" ) ) energyType = 'regression'
 simlrRankEstimate <- function( targetVarx = 0.95, ... ) {
@@ -136,16 +137,25 @@ for ( sim in 1:nsims ) {
     p1svd = mat1 %*% svd( mat1[train,], nu=0, nv=nk )$v
     p2svd = mat2 %*% svd( mat2[train,], nu=0, nv=nk )$v
     p3svd = mat3 %*% svd( mat3[train,], nu=0, nv=nk )$v
+    if ( usePCA ) {
+      p1svd = mat1 %*% prcomp( mat1[train,], rank.= nk )$rotation
+      p2svd = mat2 %*% prcomp( mat2[train,], rank.= nk )$rotation
+      p3svd = mat3 %*% prcomp( mat3[train,], rank.= nk )$rotation
+    }
     temp=data.frame( outc = outcome[,1], p1svd[,1:2], p2svd[,1:2], p3svd[,1:2] )
 
-if ( compareToJointSVD ) {
-    psvd = cbind( mat1,mat2,mat3) %*%
-      svd( cbind( mat1,mat2,mat3), nu=0, nv=nk )$v
-    p1svd = psvd[,1:2]
-    p2svd = psvd[,3:4]
-    p3svd = psvd[,5:6]
-    temp=data.frame( outc = outcome[,1], psvd[,1:6] )
-}
+    if ( compareToJointSVD ) {
+        psvd = cbind( mat1,mat2,mat3) %*%
+          svd( cbind( mat1,mat2,mat3), nu=0, nv=nk )$v
+        if ( usePCA ) {
+          psvd = cbind( mat1,mat2,mat3) %*%
+            prcomp( cbind( mat1,mat2,mat3), rank.= nk  )$rotation
+          }
+        p1svd = psvd[,1:2]
+        p2svd = psvd[,3:4]
+        p3svd = psvd[,5:6]
+        temp=data.frame( outc = outcome[,1], psvd[,1:6] )
+    }
     mdlsvd=lm( outc~.,data=temp[train,])
     rsqsvd = cor( temp$outc[test], predict(mdlsvd,newdata=temp[test,]) )
 simdatafrm[sim,] = c(

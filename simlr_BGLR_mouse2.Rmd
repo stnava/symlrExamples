@@ -13,6 +13,7 @@ library( ANTsR )
 library( ggplot2 )
 library( gaston ) # for LD and LD.plot
 if ( ! exists( "energyType" ) ) energyType = 'cca'
+if ( ! exists( "constraint" ) ) constraint = 'Grassmann'
 rf<-usePkg('randomForest')
 bg<-usePkg('BGLR')
 mlFun <- lm
@@ -68,7 +69,7 @@ for ( k in 1:5 ) { # take best result over multiple initial starting points
     initialUMatrix = snpsvd$x,
     energyType = energyType,
     verbose = TRUE,
-    constraint = c( "Grassmann" ), # some effort to keep V orthogonal
+    constraint = constraint, # some effort to keep V orthogonal
     randomSeed = k-1 )
   svx = predictSimlr( inmats, temp )
   print( svx$varx )

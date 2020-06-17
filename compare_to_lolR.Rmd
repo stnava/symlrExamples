@@ -1,0 +1,161 @@
+---
+title: "SiMLR: Comparison to Linear Optimal Low Rank Projection"
+output: html_document
+---
+
+
+See [https://github.com/neurodata/lol](https://github.com/neurodata/lol) for
+installation details for LOL.
+
+This examples is based on the LOL CCA vignette.
+
+This demonstrates:
+
+* cca energy
+
+* supervised dimensionality reduction with a vector (we one-hot code this into a matrix)
+
+* relaxation of the positivity and sparseness constraints beyond default
+
+* experimentation with sparseness and positivity parameters will show that linear
+discriminant performance is impacted by these choices.
+
+```{r,fig.width=14,fig.height=3}
+require( lolR )
+require( ggplot2 )
+require( MASS )
+require( ANTsR )
+library( gridExtra )
+if ( ! exists( "energyType" ) ) energyType = 'cca'
+n=400
+d=30
+r=3
+testdat <- lol.sims.cigar(n, d)
+testdat <- lol.sims.cigar(n, d)
+X <- testdat$X
+Y <- testdat$Y
+data <- data.frame(x1=X[,1], x2=X[,2], y=Y)
+data$y <- factor(data$y)
+g1 <- ggplot(data, aes(x=x1, y=x2, color=y)) +
+  geom_point() +
+  xlab("x1") +
+  ylab("x2") +
+  ggtitle("Simulated Data")
+
+
+# LOL
+
+result <- lol.project.lrcca(X, Y, r)
+data <- data.frame(x1=result$Xr[,1], x2=result$Xr[,2], y=Y)
+data$y <- factor(data$y)
+g2 <- ggplot(data, aes(x=x1, y=x2, color=y)) +
+  geom_point() +
+  xlab("x1") +
+  ylab("x2") +
+  ggtitle("Projected Data using LR-CCA")
+
+# SiMLR
+Y2=matrix(0,nrow=400,ncol=2)
+Y2[Y==2,2]=1
+Y2[Y==1,1]=1
+regs = regularizeSimlr( list(X,Y2), knn = c(3,1)    )
+regs[[2]] = diag( 2 )
+sss = simlr( list( X, Y2 ) , initialUMatrix=3, smoothingMatrices = regs,
+  energyType = energyType, iterations=100 )
+data <- data.frame( x1 = X %*% sss$v[[1]][,1], x2=X %*% sss$v[[1]][,2], y=Y)
+data$y <- factor(data$y)
+g3 <- ggplot(data, aes(x=x1, y=x2, color=y)) +
+  geom_point() +
+  xlab("x1") +
+  ylab("x2") +
+  ggtitle("Projected Data using SiMLR-CCA")
+
+
+#
+liney <- MASS::lda( X %*% sss$v[[1]], Y)
+result <- predict(liney, X %*% sss$v[[1]] )
+lhat <- 1 - sum(result$class == Y)/length(Y)
+
+data <- data.frame(x1=result$x[,1], y=Y)
+data$y <- factor(data$y)
+g4 <- ggplot(data, aes(x=x1, fill=y)) +
+  geom_density(adjust=1.5, alpha=0.6) +
+  xlab("x1") +
+  ylab("Density") +
+  ggtitle(sprintf("SiMLR-CCA - LDA, L = %.2f", lhat))
+
+grid.arrange( g1, g2, g3, g4, nrow=1 )
+
+```
+
+
+# Rotated trunk simulation
+
+
+```{r,fig.width=14,fig.height=3}
+testdat <- lol.sims.rtrunk(n, d, rotate=TRUE)
+X <- testdat$X
+Y <- testdat$Y
+Y2=matrix(0,nrow=400,ncol=2)
+Y2[Y==2,2]=1
+Y2[Y==1,1]=1
+
+data <- data.frame(x1=X[,1], x2=X[,2], y=Y)
+data$y <- factor(data$y)
+g5 <- ggplot(data, aes(x=x1, y=x2, color=y)) +
+  geom_point() +
+  xlab("x1") +
+  ylab("x2") +
+  ggtitle("Rotated Trunk Simulated Data")
+
+regs = regularizeSimlr( list(X,Y2), knn = c(3,1)    )
+regs[[2]] = diag( 2 )
+# compare to:
+# sss = simlr( list( X, Y2 ) , initialUMatrix=3, smoothingMatrices = regs,
+#  energyType = energyType, iterations=100 )
+ sss = simlr( list( X, Y2 ), initialUMatrix=3,
+   sparsenessQuantiles = c( 0.25, 0.25 ),
+#   smoothingMatrices = regs,
+   positivities = c('either', 'either'), energyType = energyType, iterations=100 )
+simlrProj = X %*% sss$v[[1]]
+data <- data.frame( x1 = simlrProj[,1], x2=simlrProj[,2], y=Y)
+data$y <- factor(data$y)
+g6 <- ggplot(data, aes(x=x1, y=x2, color=y)) +
+  geom_point() +
+  xlab("x1") +
+  ylab("x2") +
+  ggtitle("Projected Data using SiMLR-CCA")
+
+liney <- MASS::lda( simlrProj, Y)
+result <- predict(liney, simlrProj )
+lhat <- 1 - sum(result$class == Y)/length(Y)
+
+data <- data.frame(x1=result$x[,1], y=Y)
+data$y <- factor(data$y)
+g7 <- ggplot(data, aes(x=x1, fill=y)) +
+  geom_density(adjust=1.5, alpha=0.6) +
+  xlab("x1") +
+  ylab("Density") +
+  ggtitle(sprintf("SiMLR-LDA, L = %.2f", lhat))
+
+
+#
+result <- lol.project.lrcca(X, Y, r)
+
+data <- data.frame(x1=result$Xr[,1], x2=result$Xr[,2], y=Y)
+data$y <- factor(data$y)
+liney <- MASS::lda(result$Xr, Y)
+result <- predict(liney, result$Xr)
+lhat <- 1 - sum(result$class == Y)/length(Y)
+
+data <- data.frame(x1=result$x[,1], y=Y)
+data$y <- factor(data$y)
+g8 <- ggplot(data, aes(x=x1, fill=y)) +
+  geom_density(adjust=1.5, alpha=0.6) +
+  xlab("x1") +
+  ylab("Density") +
+  ggtitle(sprintf("LRCCA-LDA, L = %.2f", lhat))
+
+
+grid.arrange(  g5, g6, g7, g8, nrow=1 )
+```
