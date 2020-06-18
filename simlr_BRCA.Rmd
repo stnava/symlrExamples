@@ -12,7 +12,6 @@ if ( ! exists( "energyType" ) ) energyType = 'regression'
 data( BRCA_data )
 x = Data
 for ( k in 1:length( x ) ) x[[k]] = t( x[[k]] )
-source("~/code/ANTsR/R/multiscaleSVDxpts.R")
 showPCASyM <- function( x, result, nCluster, names )
 {
   library( ggfortify )
