@@ -21,7 +21,8 @@ template of brain perfusion dataset.  The PTBP is freely available on Figshare.
 
 ```{r setup,eval=TRUE,results='hide',warning=FALSE,echo=FALSE}
 # set this for your own compilation
-bd="./data/"
+bd = path.expand( "~/capsule/data/" )
+if ( ! dir.exists( bd ) ) bd = "./data/"
 set.seed( 919 )
 library( pander )
 library( ggplot2 )
@@ -243,7 +244,7 @@ if ( ! exists( "mysym" ) ) {
 Predict SiMLR post-processing.
 
 ```{r predictSiMLR}
-if ( TRUE ) {
+if ( ! exists( "pred2") ) {
   for ( k in 1:length( inmats ) ) {
     mysym$u[[k]] = inmats[[k]] %*% mysym$v[[k]]
     }
@@ -376,7 +377,7 @@ plot_multi_way_importance( importance_frame,  size_measure = "p_value" )
 fImgs = matrixToImages(t(mysym$v[[2]][,1:3]),famask)
 cImgs = matrixToImages(t(mysym$v[[3]][,1:2]),thkmask)
 tImgs = matrixToImages(t(mysym$v[[1]][,1:2]),thkmask)
-template = antsImageRead( paste0( "~/code/symlrExamples/", bd, 'PTBP_T1_BrainCerebellum.nii.gz' ) )
+template = antsImageRead( paste0(  bd, 'PTBP_T1_BrainCerebellum.nii.gz' ) )
 plot( template, abs(tImgs[[1]])/max(abs(tImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
 plot( template, abs(fImgs[[1]])/max(abs(fImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
 plot( template, abs(cImgs[[1]])/max(abs(cImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
