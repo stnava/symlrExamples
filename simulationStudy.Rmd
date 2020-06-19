@@ -34,6 +34,7 @@ with SVD.  Also show that SiMLR performs better when there is only sparse signal
 in even just one matrix.
 
 ```{r}
+set.seed( 6 )
 library(ANTsR)
 compareToJointSVD = TRUE
 doCorruption = TRUE
