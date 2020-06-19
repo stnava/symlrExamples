@@ -3,10 +3,17 @@ title: "SiMLR: BGLR data"
 output: html_document
 ---
 
+We predict BMI from genotype in a train-test design using SiMLR for
+supervised multi-view dimensionality reduction and random forest as
+a prediction engine.  We compare to RGCCA with parameters that are
+set to closely resemble those chosen for SiMLR.
+
 see [https://cran.r-project.org/web/packages/BGLR/BGLR.pdf](https://cran.r-project.org/web/packages/BGLR/BGLR.pdf) and [https://cran.r-project.org/web/packages/BGLR/vignettes/BGLR-extdoc.pdf](https://cran.r-project.org/web/packages/BGLR/vignettes/BGLR-extdoc.pdf)
 
+Collect the packages we need for this experiment.
 
 ```{r setup}
+set.seed( 1 )
 library( randomForestExplainer )
 library( rtemis )
 library( ANTsR )
@@ -18,13 +25,28 @@ rf<-usePkg('randomForest')
 bg<-usePkg('BGLR')
 mlFun <- lm
 mlFun <- randomForest
+```
+
+BGLR provides the example data which is 1,814 mice with 10,346 SNPs each.
+We split the data ( using `caret` ) into 80\% training and 20\% testing samples.
+
+```{r data}
 data(mice)
 snps<-mice.X
 if ( ! exists( "myld" ) )
   myld = LD(as.bed.matrix( snps ), lim=c(1,ncol(snps)) ) # expensive to compute
 nfolds<-8
-set.seed( 1 )
 train <- caret::createDataPartition( mice.pheno[,"Obesity.BMI"], p=0.8)$Resample1
+```
+
+
+We assemble the phenotype matrix from the relationship between various physical
+parameters of the mice.  This resembles the original CCA example given
+by Hotelling wherein he proposed investigating "individual differences in mental and physical
+traits" through "a study of the relations between sets of correlated variates."
+We display the first 200 rows of this design matrix with a heatmap.
+
+```{r bmi}
 nms = c( "Obesity.BMI"      ,  "Obesity.BodyLength", "EndNormalBW", "GENDER"  )
 numericalpheno<-data.matrix( mice.pheno[ , nms ] )
 numericalpheno[,"GENDER"] = numericalpheno[,"GENDER"] - 1
@@ -40,8 +62,12 @@ BMINAME="Obesity.BMI"
 pheatmap::pheatmap( mdlMat[1:200,], cluster_rows=F, cluster_cols=F, show_rownames = F )
 ```
 
+Now we demonstrate using `simlr` (the code) to perform a supervised
+multi-view regression between SNPs and the phenotype variables.
+First, we produce regularization matrices.  We use linkage
+disequilibrium for SNPs and a thresholded correlation matrix for phenotype.
+
 ```{r sym}
-# same thing with SiMLR
 regs = list()
 # demonstrate use of regularization of the high-dimensional matrix
 regs[[1]] = as.matrix( myld ) # diag(ncol(inmats[[1]]))
@@ -53,23 +79,32 @@ regs[[2]] = cor(inmats[[2]])
 regs[[2]][regs[[2]]<corThresh[2]]=0
 regs[[2]] = as( regs[[2]], "sparseMatrix" )
 # library( plot.matrix )
-# image( regs[[2]], main='Regularization matrix for supervising variables related to BMI and gender.')
-# image( regs[[1]][1:250,1:250], main='Corner of regularization matrix for SNPs.')
+# pheatmap::pheatmap( regs[[2]], cluster_rows=F, cluster_cols=F, show_rownames = F, main='Regularization matrix for supervising variables related to BMI and gender.')
+# pheatmap::pheatmap( regs[[1]][1:250,1:250], main='Corner of regularization matrix for SNPs.')
+```
+
+Next, we run `simlr` with several starting points and take the best result.
+Like $k$-means, `simlr` has sensitivity to initialization so it is prudent to
+use multi-start methods (also standard in $k$-means).  We use explained
+variance to determine the best result but one could also use the best energy
+obtained.  The algorithm will stop before the max iterations if it detects convergence.
+
+```{r runsym}
 bestVarx = 0
 nEmbed = 3
 mysq = c( 0.9, 0.5 )
-if ( ! exists( "snpd" ) )
-  snpsvd = prcomp( inmats[[1]], rank. = nEmbed )
+#  initu = prcomp( inmats[[1]], rank. = nEmbed )
+initu = initializeSimlr( inmats, nEmbed, jointReduction = T, uAlgorithm = 'ica' )
 for ( k in 1:5 ) { # take best result over multiple initial starting points
   temp = simlr(
     inmats,
     regs,
     iterations = 100,
     sparsenessQuantiles = mysq,
-    initialUMatrix = snpsvd$x,
+    initialUMatrix = initu,
     energyType = energyType,
     verbose = TRUE,
-    randomSeed = k-1 )
+    randomSeed = 1000+k-1 )
   svx = predictSimlr( inmats, temp )
   print( svx$varx )
   if ( sum( svx$varx ) > bestVarx ) {
@@ -83,7 +118,7 @@ svx = predictSimlr( inmats, sResult )
 ```
 
 Demonstrate post-hoc descriptive statistics and prediction of BMI
-from SNPs.
+from SNPs with the selected prediction model.
 
 ```{r postsym}
 print( svx[1] )
@@ -97,7 +132,6 @@ myrf<-mlFun( bmi ~ . , data=straindf[,], localImp = TRUE )
 predictedBMI <- predict( myrf, newdata=stestdf )
 print( cor.test( predictedBMI, stestdf$bmi ) )
 print(paste( "Err",  mean( abs( predictedBMI-stestdf$bmi ) ) ) )
-# plot( predictedBMI, stestdf$bmi ) #  xlim=c(-8,8),ylim=c(-8,8))
 rtemis::mplot3.xy(stestdf$bmi, predictedBMI, fit = "lm",main=paste('Predicted vs real BMI'))
 importance_frame <- measure_importance( myrf )
 plot_multi_way_importance( importance_frame, size_measure = "p_value" )
@@ -105,7 +139,7 @@ plot_multi_way_importance( importance_frame, size_measure = "p_value" )
 #  y_measure = "no_of_nodes",
 ```
 
-LD for the selected SNPs.
+Show LD for the selected SNPs.
 
 ```{r myLD}
 
@@ -117,14 +151,17 @@ www = which( selector )
 subsnps = snps[,www]
 myldSel = LD(as.bed.matrix( subsnps ), lim=c(1,ncol(subsnps)) ) # expensive to compute
 # pdf( "~/code/navy/PING/myldsel.pdf", width=6, height=6 )
-# LD.plot( myldSel )
+LD.plot( myldSel )
 # dev.off()
 
 
 ```
 
 
-comparison to RGCCA
+Below, we run a comparison to RGCCA where we instantiate a version of this
+powerful tool that closely resembles the setup we elected for SiMLR.  We
+use a CCA design matrix and relatable sparseness parameters.  Results look
+very close to that of SiMLR.
 
 ```{r rgcca}
 message("use RGCCA to compute the same type of representation")
