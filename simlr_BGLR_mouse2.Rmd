@@ -69,7 +69,6 @@ for ( k in 1:5 ) { # take best result over multiple initial starting points
     initialUMatrix = snpsvd$x,
     energyType = energyType,
     verbose = TRUE,
-    constraint = constraint, # some effort to keep V orthogonal
     randomSeed = k-1 )
   svx = predictSimlr( inmats, temp )
   print( svx$varx )
