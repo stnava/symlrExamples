@@ -121,10 +121,16 @@ voxandeanatstudy <- function( demog, imgmat, imgmask,
 ```
 
 
-# Three little modalities
+# Collect each of the voxel-wise matrix modalities
 
 
 ## Cortical Thickness data
+
+The thickness of the cortex is a well-known maturational index with
+rapid changes during adolescence.  Here, we use DiReCT in ANTs to estimate
+thickness from T1 data and stored the result, after normalization to a group
+template, in a matrix.  The PTBP paper describes this in more detail.
+The mask covers template cortex.
 
 ```{r thkfun}
 ############################################
@@ -145,6 +151,11 @@ if ( ! exists("wthk")  ) {
 
 ## Fractional anisotropy (FA) data
 
+FA is a maturational index that relates to the connective structure in the
+brain and is complementary to cortical thickness (computation vs wiring).
+As with CT, the FA is normalizes to a template and collected into a matrix
+here.  The mask covers template white matter.
+
 ```{r fafun}
 fafn=paste(bd,"ptbp_vox_fa.mha",sep='')
 famask=antsImageRead( paste(bd,"ptbp_mask_fa.nii.gz",sep='') )
@@ -163,6 +174,12 @@ if ( ! exists("wfa")  ) {
 
 ## Cerebral blood flow (CBF) data
 
+In contrast to the prior two measurements, CBF is a functional measurement
+related to blood flow or perfusion in the brain.  CBF is more variable
+during the day and with a variety of other factors in comparison to structural
+measurements.  However, it also shows general trends that relate to maturation.
+The matrix, here, covers the cortex.
+
 ```{r cbffun}
 cbffn=paste(bd,"ptbp_vox_cbf.mha",sep='')
 cbfmat=as.matrix( antsImageRead( cbffn ) )
@@ -178,9 +195,14 @@ if ( ! exists("wcbf") ) {
   }
 ```
 
-# Three little modalities jointly
+# Joint modeling of thickness, FA and CBF
 
 ## SiMLR
+
+We first collect only subjects that have all 3 modalities.  We then demonstrate
+one approach to auto-select the rank for the call to `simlr`.  The example
+disregards the recommended rank for expediency and because we are primarily
+interested in testing the largest components of covariation.
 
 ```{r estimateRank}
 if ( ! exists( "energyType" ) ) energyType = 'regression'
@@ -206,6 +228,10 @@ if ( ! exists( "rankData" ) )
   rankData = simlrRankEstimate( 0.90, inmats[[1]], inmats[[2]], inmats[[3]] )
 ```
 
+In this code chunk, we precompute SVD on each matrix, prepare regularization
+matrices (using wrapper functions from ANTsR) and then call SiMLR with
+sparseness parameters set somewhat higher than defaults to yield more focal
+feature vectors.
 
 ```{r simlr}
 if ( ! exists( "svdth" ) ) {
@@ -213,7 +239,7 @@ if ( ! exists( "svdth" ) ) {
   svdcb = svd(inmats[[2]],nu=rankData$suggestedRank,nv=0)$u
   svdfa = svd(inmats[[3]],nu=rankData$suggestedRank,nv=0)$u
 }
-if ( ! exists( "smoms") ) { # regularization matrices
+if ( ! exists( "smoms") ) { # regularization matrices based on spatial proximity
   smoms = list()
   spatmat = t( imageDomainToSpatialMatrix( thkmask, thkmask ) )
   smoms[[1]] = knnSmoothingMatrix( spatmat, k = 5^3, sigma = 20 )
@@ -239,7 +265,11 @@ if ( ! exists( "mysym" ) ) {
 ######
 ```
 
-Predict SiMLR post-processing.
+Predict SiMLR post-processing. This helper function provides a variety
+of user-controllable outputs that can help one determine how one may want to
+reorder SiMLR components e.g. by their explanatory power either within or across
+modalities.  Lastly, in this section, we compute the projections of the feature
+vectors onto the original matrices (the components or embeddings).
 
 ```{r predictSiMLR}
 if ( ! exists( "pred2") ) {
@@ -261,89 +291,85 @@ nmm=c("thk","fa","pcbf")
 ```
 
 Look at the `simlr` embeddings in comparison to SVD in terms of
-overall regression fit to the data.
+overall regression fit to the data using only the top 4 predictors.
 
 ```{r brainAge}
 ss=1:4
-svdlr = svd( cbind(pthk,pfa,pcbf)  )$u
-svdlr2 = svd( cbind(svdth,svdcb,svdfa)  )$u
-simlrembeddings = cbind( pthk[,ss],  pcbf[,ss], pfa[,ss] )
-m1 = lm( AgeAtScan ~   Sex, data = demog[haveAllMerge,] )
-m2 = lm( AgeAtScan ~  simlrembeddings + Sex, data = demog[haveAllMerge,] )
-m3 = lm( AgeAtScan ~ svdlr2[,1:ncol(simlrembeddings)] + Sex, data = demog[haveAllMerge,] )
+simlrembeddings = cbind( pthk[,ss],  pcbf[,ss], pfa[,ss] )  # joined simlr vectors
+svdlr = svd( cbind(pthk,pfa,pcbf)  )$u        # SVD of the joined simlr vectors
+svdlr2 = svd( cbind(svdth,svdcb,svdfa)  )$u   # SVD of the joined SVD vectors
+m1 = lm( AgeAtScan ~   Sex, data = demog[haveAllMerge,] ) # base model
+m2 = lm( AgeAtScan ~  simlrembeddings + Sex,
+  data = demog[haveAllMerge,] ) # simlr model
+m3 = lm( AgeAtScan ~ svdlr2[,1:ncol(simlrembeddings)] + Sex,
+  data = demog[haveAllMerge,] ) # svd model
 print(mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m2))))
 print(mean(abs( demog[haveAllMerge,"AgeAtScan"] - predict(m3))))
 ```
 
+Do these embeddings relate to verbal IQ?
 
 ```{r VIQ}
-m1 = lm( Verbal.IQ ~   Sex + AgeAtScan , data = demog[haveAllMerge,] )
-m2 = lm( Verbal.IQ ~  ( pthk[,ss] +  pfa[,ss]  +pcbf[,ss]) + Sex +  AgeAtScan , data = demog[haveAllMerge,] )
+m1 = lm( Verbal.IQ ~   Sex + AgeAtScan , data = demog[haveAllMerge,] ) # base
+m2 = lm( Verbal.IQ ~  ( pthk[,ss] +  pfa[,ss]  +pcbf[,ss]) + Sex +  AgeAtScan,
+  data = demog[haveAllMerge,] ) # simlr VIQ
 print( anova( m1, m2  ) )
 ```
 
+Do these embeddings relate to SES?
 
 ```{r SES}
 demog[haveAllMerge,"Income"] = antsrimpute(demog[haveAllMerge,"Income"])
-m1 = lm( Teen.Ladder.SES.score ~   Sex + stats::poly(AgeAtScan,1), data = demog[haveAllMerge,] )
-m2 = lm( Teen.Ladder.SES.score ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex + stats::poly(AgeAtScan,1)+1, data = demog[haveAllMerge,] )
-# m2 = lm( Teen.Ladder.SES.score ~  ( svdth[,ss] + svdfa[,ss]+ svdcb[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
+m1 = lm( Teen.Ladder.SES.score ~   Sex + stats::poly(AgeAtScan,1),
+  data = demog[haveAllMerge,] ) # base
+m2 = lm( Teen.Ladder.SES.score ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) +
+  Sex + stats::poly(AgeAtScan,1)+1, data = demog[haveAllMerge,] ) # simlr
 print( anova( m1, m2  ) )
 ```
 
-Compare `simlr` embeddings to SVD in terms of relationship with IQ.
+Compare `simlr` embeddings to SVD in terms of relationship with total IQ.
 
 ```{r FIQ}
-m1 = lm( FullScaleIQ ~   Sex + AgeAtScan, data = demog[haveAllMerge,] )
-m2 = lm( FullScaleIQ ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
+m1 = lm( FullScaleIQ ~   Sex + AgeAtScan, data = demog[haveAllMerge,] ) # base
+m2 = lm( FullScaleIQ ~  ( pthk[,ss] + pfa[,ss]+ pcbf[,ss] ) + Sex +
+  AgeAtScan, data = demog[haveAllMerge,] ) # simlr
 print( anova( m1, m2  ) )
-m3 = lm( FullScaleIQ ~  ( svdth[,ss] + svdcb[,ss]+ svdfa[,ss] ) + Sex + AgeAtScan, data = demog[haveAllMerge,] )
+m3 = lm( FullScaleIQ ~  ( svdth[,ss] + svdcb[,ss]+ svdfa[,ss] ) + Sex +
+  AgeAtScan, data = demog[haveAllMerge,] ) # svd, same size model
 print( anova( m1, m3  ) )
-# print( summary(m1) )
-# print( summary(m2) )
 ```
 
+Show the model Coefficients.
 
 ```{r FIQp}
 pander( m2 )
 ```
 
+Perform a sanity check that there should also be a relationship between
+the embeddings.
 
 ```{r sanitycheck}
 print( summary(lm( pthk[,2] ~  ( pcbf[,2] + pfa[,2] ) + Sex + BV +
   AgeAtScan, data = demog[haveAllMerge,] )) )
-# plot( thkmask, makeImage( thkmask,  abs(mysym$v[[1]][,1]) ) )
-```
-
-
-## Joint stats: Thickness, FA $+$ CBF
-
-```{r jointstats,echo=FALSE}
-alldf = data.frame( demog[haveAllMerge,], thk=pthk, fa=pfa, cbf=pcbf )
-# alldf = data.frame( demog[haveAllMerge,], thk=svdth[,1:10], fa=svdfa[,1:10], cbf=svdcb[,1:10] )
-alldf = alldf[,c(3,4,20:min(c(ncol(alldf),49) )) ]
-mdl1=lm( AgeAtScan ~ . ,
-  data=alldf[,c(1,2)])
-mdl2=lm( AgeAtScan ~ . ,
-  data=alldf[,])
-knitr::kable(anova(mdl1,mdl2))
 ```
 
 
 ## Let's do some prediction
 
 Use random forests to decide how relevant each
-modality is to reproducible predictions of age.
+modality and embedding is to predictions of age.  We also evaluate - using a
+50/50 data split - the age prediction error.
 
 First get the data organized.
 
-
-
 ## Build the RF model
 
+In general, one should run several iterations of the below calculations in order
+to better understand the distribution of results.  However, this gives the
+basic idea.
 
 ```{r rfpred,echo=FALSE}
-groups <- rep( c(1,2), 1000 )[1:nrow(alldf)]
+groups <- rep( c(1,2), 1000 )[1:nrow(alldf)] # 50-50 split
 traing=groups==1
 testg=groups==2
 mdl=randomForest(  AgeAtScan ~ . , data=alldf[traing,],localImp = TRUE )
@@ -355,6 +381,9 @@ visreg::visreg(vmdl)
 ```
 
 ## RF importance plot
+
+The random forest importance plot sheds light on which variables are most
+relevant in the RF decision tree.
 
 ```{r rfimp,echo=FALSE}
 importance_frame <- measure_importance( mdl )
@@ -371,35 +400,38 @@ plot_multi_way_importance( importance_frame,  size_measure = "p_value" )
 
 ## Check the SiMLR regions of the brain
 
+Lastly, we visualize the feature vectors. First, thickness (top two).
+
 ```{r thksimlr4,eval=TRUE,echo=FALSE}
-fImgs = matrixToImages(t(mysym$v[[2]][,1:3]),famask)
-cImgs = matrixToImages(t(mysym$v[[3]][,1:2]),thkmask)
 tImgs = matrixToImages(t(mysym$v[[1]][,1:2]),thkmask)
 template = antsImageRead( paste0(  bd, 'PTBP_T1_BrainCerebellum.nii.gz' ) )
 plot( template, abs(tImgs[[1]])/max(abs(tImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
+plot( template, abs(tImgs[[2]])/max(abs(tImgs[[2]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
+```
+
+Fractional anisotropy features.
+
+```{r FAsimlr4,eval=TRUE,echo=FALSE}
+fImgs = matrixToImages(t(mysym$v[[2]][,1:3]),famask)
 plot( template, abs(fImgs[[1]])/max(abs(fImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
+plot( template, abs(fImgs[[2]])/max(abs(fImgs[[2]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
+```
+
+CBF features.
+
+```{r CBFsimlr4,eval=TRUE,echo=FALSE}
+cImgs = matrixToImages(t(mysym$v[[3]][,1:2]),thkmask)
 plot( template, abs(cImgs[[1]])/max(abs(cImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
-```
-
-## Look over simlr results
-
-Which demographic variables match which imaging variables?
-
-```{r thksimlr2,eval=FALSE}
-rownames( ssimlrn$eig2 )=colnames( sdemog )
-knitr::kable( ssimlrn$eig2 )
+plot( template, abs(cImgs[[2]])/max(abs(cImgs[[2]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
 ```
 
 
+# Discussion
 
+* Reviewed how to set up simlr for imaging studies including regularization
+and parameter setting.
 
-# Review
-
-## Discussion
-
-* Reviewed sparse dimensionality reduction
-
-* These methods update traditional dimensionality reduction tools for neuroimaging
+* Compared these methods to traditional dimensionality reduction tools for neuroimaging
 
 * We showed strategies for using these modalities together to find meaningful predictors.
 
