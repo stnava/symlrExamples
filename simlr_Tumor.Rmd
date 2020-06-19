@@ -62,7 +62,7 @@ sResult = simlr( Anew,
   initialUMatrix = initu,
   iterations = 50,
   energyType = energyType,
-  constraint = 'Stiefel',
+  constraint = 'Stiefel', # an advanced option
   mixAlg = 'ica',
   verbose = T )
 plot( ts( sResult$totalEnergy) )
