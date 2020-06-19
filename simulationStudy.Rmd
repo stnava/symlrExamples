@@ -1,17 +1,29 @@
 ---
-title: 'SiMLR Simulation Study: Decode known latent signal and perform permutation testing
-on the relationship to determine empirical distribution (significance).  Compare with SVD.'
+title: 'SiMLR Simulation Study: Demonstrate basic assumptions for SiMLR and compare to SVD'
 author: "Brian B. Avants et al."
 date: "`r Sys.Date()`"
 output: html_document
 ---
 
-Demonstrate basic assumptions for SiMLR and compare to SVD.
+Decode known latent signal distributed across 3 matrices with SiMLR and SVD.
+We perform permutation testing on the relationship to determine
+empirical distribution (significance) and compare with SVD.
 
-Default options corrupt half of the 3rd matrix which is why the sparse
-SiMLR result outperforms SVD.
+The key metrics will compare the ability to predict the known latent signal
+in testing data based on the embeddings derived in an unsupervised dimensionality
+reduction step.  This is one of the primary ways in which SiMLR may be used
+to study high-dimensional datasets.
 
-The simulation study has several parameter the user may explore for fun.
+The main metric will be the R$^2$ value between the model fit and the true
+latent signal in the test data.  Higher values (averaged over simulations)
+are associated with better performance.
+
+The simulation study has several parameter the user may explore to gain more
+insight. Default options corrupt half of the 3rd matrix which is why the sparse
+SiMLR result outperforms SVD.  If we do not corrupt that data -- and use
+joint SVD -- then performance is comparable.  If we do not corrupt data
+and perform SVD separately on each matrix, then SiMLR somewhat outperforms
+SVD, as expected.
 
 Note: every run re-simulates the input data, re-runs SiMLR and SVD and compares
 the findings to the same applied to permuted data.  In a real example, you would
@@ -27,7 +39,7 @@ compareToJointSVD = TRUE
 doCorruption = TRUE
 usePCA = FALSE
 nSimlrEmbeddings = 6
-nsims = 20 # number of simulation runs
+nsims = 50 # number of simulation runs
 if ( ! exists( "energyType" ) ) energyType = 'regression'
 simlrRankEstimate <- function( targetVarx = 0.95, ... ) {
   # just run one permutation in order to get a baseline estimate
@@ -119,7 +131,7 @@ for ( sim in 1:nsims ) {
     temp=data.frame( outc = outcome[,1], P1=p1[,1:2], P2=p2[,1:2], P3=p3[,1:2] )
     mdlsym=lm( outc~.,data=temp[train,])
     summary(mdlsym)
-    rsqsym = cor( temp$outc[test], predict(mdlsym,newdata=temp[test,]) )
+    rsqsym = cor( temp$outc[test], predict(mdlsym,newdata=temp[test,]) )^2
 
     # compare to permuted data
     s1 = sample( 1:nsub)
@@ -154,7 +166,7 @@ for ( sim in 1:nsims ) {
 
     temp=data.frame( outc = outcome[,1], p1p[,1:2], p2p[,1:2], p3p[,1:2]   )
     mdlprm=lm( outc~.,data=temp[train,])
-    rsqprm = cor( temp$outc[test], predict(mdlprm,newdata=temp[test,]) )
+    rsqprm = cor( temp$outc[test], predict(mdlprm,newdata=temp[test,]) )^2
 
     # compare to SVD
     p1svd = mat1 %*% svd( mat1[train,], nu=0, nv=nk )$v
@@ -180,7 +192,7 @@ for ( sim in 1:nsims ) {
         temp=data.frame( outc = outcome[,1], psvd[,1:6] )
     }
     mdlsvd=lm( outc~.,data=temp[train,])
-    rsqsvd = cor( temp$outc[test], predict(mdlsvd,newdata=temp[test,]) )
+    rsqsvd = cor( temp$outc[test], predict(mdlsvd,newdata=temp[test,]) )^2
 simdatafrm[sim,] = c(
   mean(abs(cor( outcome, cbind(p1,p2,p3)))),
   rsqsym,
@@ -236,7 +248,7 @@ h2 = hist( simdatafrm[,nms[2]])
 h3 = hist( simdatafrm[,nms[3]])
 myxl=c(0,1)
 # pdf("./perfHistRSQ.pdf",width=6,height=4)
-plot( h1, col=rgb(0,0,1,1/4), xlim=myxl, main='Simulation data: SyMILR vs SVD vs SyMILR-perm' ,  xlab='RSQ' )
+plot( h1, col=rgb(0,0,1,1/4), xlim=myxl, main='Simulation data: SyMILR (blu) vs SVD (grn) vs SyMILR-perm' ,  xlab='RSQ' )
 plot( h2, col=rgb(1,0,0,1/4), xlim=myxl, add=T )
 plot( h3, col=rgb(0,1,0,1/4), xlim=myxl, add=T )
 ```

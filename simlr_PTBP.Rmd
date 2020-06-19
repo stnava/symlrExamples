@@ -354,11 +354,33 @@ print( summary(lm( pthk[,2] ~  ( pcbf[,2] + pfa[,2] ) + Sex + BV +
 ```
 
 
+
+# Joint modeling: Thickness, FA $+$ CBF predicting age
+
+
+First, organize the data that we need into a single data frame
+and define train/test groups.
+We will evaluate - using a 50/50 data split - the age prediction error based on
+these 3 modalities.
+
+```{r jointstats,echo=FALSE}
+alldf = data.frame( demog[haveAllMerge,], thk=pthk, fa=pfa, cbf=pcbf )
+alldf = alldf[,c(3,4,20:min(c(ncol(alldf),49) )) ]
+groups <- rep( c(1,2), 1000 )[1:nrow(alldf)] # 50-50 split
+traing=groups==1
+testg=groups==2
+```
+
+
 ## Let's do some prediction
 
 Use random forests to decide how relevant each
-modality and embedding is to predictions of age.  We also evaluate - using a
-50/50 data split - the age prediction error.
+modality and embedding is to predictions of age.
+
+Also report the mean absolute error in age prediction as is standard in brain age.
+The values below are in years.  Generally, for this narrow age range, one to two
+years error is expected.  Our prior PTBP and eigenanatomy
+publications provide some guidance on this.
 
 First get the data organized.
 
@@ -369,9 +391,6 @@ to better understand the distribution of results.  However, this gives the
 basic idea.
 
 ```{r rfpred,echo=FALSE}
-groups <- rep( c(1,2), 1000 )[1:nrow(alldf)] # 50-50 split
-traing=groups==1
-testg=groups==2
 mdl=randomForest(  AgeAtScan ~ . , data=alldf[traing,],localImp = TRUE )
 predage = predict( mdl, newdata=alldf[ testg, ] )
 print( paste( "Predicted age error:", mean( abs(predage - alldf[testg,]$AgeAtScan ) ) ) )
