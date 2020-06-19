@@ -1,7 +1,22 @@
 ---
-title: "SiMLR: Tumor Data"
+title: "SiMLR: Glioma data: Clustering"
 output: html_document
 ---
+
+This 3-view example illustrates how we can cluster data based on SiMLR dimensionality
+reduction.
+
+```
+rmarkdown::render("simlr_Tumor.Rmd")
+```
+
+The data for the glioma example is hosted publicly.  Download the file
+[http://biodev.cea.fr/sgcca/gliomaData_0.4.tar.gz](http://biodev.cea.fr/sgcca/gliomaData_0.4.tar.gz)
+then call `R CMD INSTALL gliomaData_0.4.tar.gz` to make it accessible in your
+`R` environment.
+
+- Result: a simple unsupervised clustering plot.
+
 
 see [https://cran.r-project.org/web/packages/RGCCA/vignettes/vignette_RGCCA.pdf](https://cran.r-project.org/web/packages/RGCCA/vignettes/vignette_RGCCA.pdf)
 

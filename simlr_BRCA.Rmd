@@ -1,7 +1,14 @@
 ---
-title: "simlr: BRCA Example"
+title: "simlr: BRCA Example for data clustering"
 output: html_document
 ---
+
+Demonstrates data-driven supervised clustering and variance explained in 3-view
+BRCA/gene-related data.
+
+
+- Result: SiMLR and RGCCA both are able to perform supervised clustering successfully
+as shown by the group separation plot.
 
 
 ```{r}
