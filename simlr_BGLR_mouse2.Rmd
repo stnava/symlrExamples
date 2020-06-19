@@ -13,7 +13,7 @@ see [https://cran.r-project.org/web/packages/BGLR/BGLR.pdf](https://cran.r-proje
 Collect the packages we need for this experiment.
 
 ```{r setup}
-set.seed( 1 )
+set.seed( 808 )
 library( randomForestExplainer )
 library( rtemis )
 library( ANTsR )
@@ -104,7 +104,7 @@ for ( k in 1:5 ) { # take best result over multiple initial starting points
     initialUMatrix = initu,
     energyType = energyType,
     verbose = TRUE,
-    randomSeed = 1000+k-1 )
+    randomSeed = 101+k-1 )
   svx = predictSimlr( inmats, temp )
   print( svx$varx )
   if ( sum( svx$varx ) > bestVarx ) {

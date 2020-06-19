@@ -13,6 +13,7 @@ as shown by the group separation plot.
 
 ```{r}
 # https://cran.r-project.org/web/packages/r.jive/vignettes/BRCA_Example.html
+set.seed( 808 )
 library( r.jive )
 library( ANTsR )
 if ( ! exists( "energyType" ) ) energyType = 'regression'
