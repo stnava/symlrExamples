@@ -19,6 +19,8 @@ Here, we compare `simlr` to `svd` for predicting age and IQ in the pediatric
 template of brain perfusion dataset.  The PTBP is freely available on Figshare.
 
 
+## Load relevant packages
+
 ```{r setup,eval=TRUE,results='hide',warning=FALSE,echo=FALSE}
 # set this for your own compilation
 bd = path.expand( "~/capsule/data/" )
@@ -34,6 +36,9 @@ library(randomForest)
 
 ## Basic Setup
 
+Get masks for each modality, along with matrices wherein the normalized
+data is stored.
+
 ```{r dataio}
 neanatvecs=2
 thkmask=antsImageRead( paste(bd,"ptbp_mask_thickness.nii.gz",sep='') )
@@ -43,16 +48,7 @@ demog=read.csv(paste(bd,"ptbp_summary_demographics.csv",sep='') )
 demog=demog[ , 1:19 ]
 ```
 
-## Set up the formula
-
-```{r form}
-formulathkbase=" AgeAtScan * Sex + I(AgeAtScan^2)"
-formulathkbase=" PIQ + BV"
-formulathktest=" AgeAtScan * Sex + I(AgeAtScan^2)"
-voi="AgeAtScan"
-```
-
-## Generic version: Function
+## Generic function to collect and organize data
 
 ```{r genericvox}
 voxandeanatstudy <- function( demog, imgmat, imgmask,
@@ -128,7 +124,7 @@ voxandeanatstudy <- function( demog, imgmat, imgmask,
 # Three little modalities
 
 
-## Thickness Eanat
+## Cortical Thickness data
 
 ```{r thkfun}
 ############################################
@@ -147,7 +143,7 @@ if ( ! exists("wthk")  ) {
   }
 ```
 
-## FA Eanat
+## Fractional anisotropy (FA) data
 
 ```{r fafun}
 fafn=paste(bd,"ptbp_vox_fa.mha",sep='')
@@ -165,7 +161,7 @@ if ( ! exists("wfa")  ) {
   }
 ```
 
-## CBF Eanat
+## Cerebral blood flow (CBF) data
 
 ```{r cbffun}
 cbffn=paste(bd,"ptbp_vox_cbf.mha",sep='')
@@ -225,8 +221,10 @@ if ( ! exists( "smoms") ) { # regularization matrices
   smoms[[2]] = knnSmoothingMatrix( spatmat, k = 5^3, sigma = 20 )
   smoms[[3]] = smoms[[1]]
 }
-
-initu = initializeSimlr( inmats, rankData$suggestedRank, jointReduction = T, uAlgorithm = 'ica' )
+targetRank = rankData$suggestedRank
+# instead, for speed of example, reduce the value to K
+targetRank = 4
+initu = initializeSimlr( inmats, targetRank, jointReduction = T, uAlgorithm = 'ica' )
 if ( ! exists( "mysym" ) ) {
   mysym = simlr(
       voxmats = inmats,

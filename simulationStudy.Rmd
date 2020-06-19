@@ -1,3 +1,16 @@
+---
+title: 'SiMLR: Simulation study'
+author: "Brian B. Avants et al."
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Demonstrate basic assumptions for SiMLR and compare to SVD.
+
+Default options corrupt half of the 3rd matrix which is why the sparse
+SiMLR result outperforms SVD.
+
+```{r}
 library(ANTsR)
 compareToJointSVD = TRUE
 doCorruption = FALSE
@@ -201,21 +214,22 @@ h1 = hist( simdatafrm[,nms[1]])
 h2 = hist( simdatafrm[,nms[2]])
 h3 = hist( simdatafrm[,nms[3]])
 myxl=c(0,0.7)
-pdf("./perfHistMeanCorr.pdf",width=6,height=4)
+# pdf("./perfHistMeanCorr.pdf",width=6,height=4)
 plot( h1, col=rgb(0,0,1,1/4), xlim=myxl, main='Simulation data: SyMILR vs SVD vs SyMILR-perm' ,  xlab='Mean Correlation' )
 plot( h2, col=rgb(1,0,0,1/4), xlim=myxl, add=T )
 plot( h3, col=rgb(0,1,0,1/4), xlim=myxl, add=T )
-dev.off()
+# dev.off()
 
 nms=c("symRSQ","svdRSQ","prmRSQ")
 h1 = hist( simdatafrm[,nms[1]])
 h2 = hist( simdatafrm[,nms[2]])
 h3 = hist( simdatafrm[,nms[3]])
 myxl=c(0,1)
-pdf("./perfHistRSQ.pdf",width=6,height=4)
+# pdf("./perfHistRSQ.pdf",width=6,height=4)
 plot( h1, col=rgb(0,0,1,1/4), xlim=myxl, main='Simulation data: SyMILR vs SVD vs SyMILR-perm' ,  xlab='RSQ' )
 plot( h2, col=rgb(1,0,0,1/4), xlim=myxl, add=T )
 plot( h3, col=rgb(0,1,0,1/4), xlim=myxl, add=T )
-dev.off()
+# dev.off()
 print(t.test(simdatafrm[,nms[1]],simdatafrm[,nms[2]],paired=T))
 print(t.test(simdatafrm$symMeanCorrs,simdatafrm$svdMeanCorrs,paired=T))
+```
