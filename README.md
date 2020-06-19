@@ -13,8 +13,9 @@ R packages
 
 ```
 library( r.jive ) # external package with example data for BRCA => try github if not on CRAN
-# devtools::install_github( "cran/r.jive" )
-devtools::install_github( 'neurodata/lol', build_vignettes=TRUE, force=TRUE )  # install lol with the vignettes
+devtools::install_github( "cran/SpatioTemporal" )
+devtools::install_github( "cran/r.jive" )
+devtools::install_github( 'neurodata/lol', force=TRUE )  # install lol with the vignettes
 library( ANTsR )  # github/neuroconductor
 library( ggplot2 )  # CRAN
 library( RGCCA )  # CRAN
@@ -97,8 +98,10 @@ on the relationship to determine empirical distribution (significance).  Compare
 simulate known signal and recover it with SiMLR - also demonstrates a simple
 comparison to SVD and to permuted data.
 
+The simulation study has several parameter the user may explore for fun.
+
 ```
-rmarkdown::render("simlr_Simulation.Rmd")
+rmarkdown::render("simulationStudy.Rmd")
 ```
 
 Note: every run re-simulates the input data, re-runs SiMLR and SVD and compares
@@ -106,7 +109,8 @@ the findings to the same applied to permuted data.  In a real example, you would
 only run SiMLR and SVD on permuted data in each loop.
 
 - Result: Demonstrate well-above chance recovery of latent signal competitive
-with SVD.
+with SVD.  Also show that SiMLR performs better when there is only sparse signal
+in even just one matrix.
 
 
 5. BRCA: Data clustering
@@ -146,17 +150,9 @@ rmarkdown::render("compare_to_lolR.Rmd")
 energyType = 'regression'
 rmarkdown::render("simlr_Tumor.Rmd")
 rmarkdown::render("simlr_BRCA.Rmd")
-rmarkdown::render("simlr_Simulation.Rmd")
+rmarkdown::render("simulationStudy.Rmd")
 rmarkdown::render("simlr_BGLR_mouse2.Rmd")
 rmarkdown::render("simlr_PTBP.Rmd")
 ```
 
 Once the above complete, you can inspect their `html` output.
-
-Run the simulation study:
-
-```
-source("simulationStudy.R")
-```
-
-The simulation study has several parameter the user may explore for fun.

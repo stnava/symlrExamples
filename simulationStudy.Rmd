@@ -1,5 +1,6 @@
 ---
-title: 'SiMLR: Simulation study'
+title: 'SiMLR Simulation Study: Decode known latent signal and perform permutation testing
+on the relationship to determine empirical distribution (significance).  Compare with SVD.'
 author: "Brian B. Avants et al."
 date: "`r Sys.Date()`"
 output: html_document
@@ -10,12 +11,23 @@ Demonstrate basic assumptions for SiMLR and compare to SVD.
 Default options corrupt half of the 3rd matrix which is why the sparse
 SiMLR result outperforms SVD.
 
+The simulation study has several parameter the user may explore for fun.
+
+Note: every run re-simulates the input data, re-runs SiMLR and SVD and compares
+the findings to the same applied to permuted data.  In a real example, you would
+only run SiMLR and SVD on permuted data in each loop.
+
+- Result: Demonstrate well-above chance recovery of latent signal competitive
+with SVD.  Also show that SiMLR performs better when there is only sparse signal
+in even just one matrix.
+
 ```{r}
 library(ANTsR)
 compareToJointSVD = TRUE
-doCorruption = FALSE
-usePCA = TRUE
-nSimlrEmbeddings = 16
+doCorruption = TRUE
+usePCA = FALSE
+nSimlrEmbeddings = 6
+nsims = 20 # number of simulation runs
 if ( ! exists( "energyType" ) ) energyType = 'regression'
 simlrRankEstimate <- function( targetVarx = 0.95, ... ) {
   # just run one permutation in order to get a baseline estimate
@@ -33,18 +45,16 @@ simlrRankEstimate <- function( targetVarx = 0.95, ... ) {
   return( list( svdD_original = svd1, svdD_perm = svdperm,
     varxComparison = myrankComp, suggestedRank = max( which(myrankComp[1:wv]) ) ) )
 }
-
 nsub = 100 # number of subjects
-npix = round(c(2000,1005,500)/1)  # size of matrices
-nk = 10    # n components
+npix = round(c(200,100,500)/1)  # size of matrices
+nk = nSimlrEmbeddings    # n components
 mx = 'ica'   # mixing method
-nits = 20  # n-iterations
+nits = 10  # n-iterations
 nz = 0       # simulated signal parameter - not sensitive to this choice
 nzs = 1.5    # simulated signal parameter - not sensitive to this choice
 nzs2 = 1     # simulated signal parameter - not sensitive to this choice
 train = c( rep(T,80) ,rep(F,20)) # train and test split
 test = !train
-nsims = 20 # number of simulation runs
 nna = rep( NA, nsims )
 simdatafrm = data.frame(
     symMeanCorrs = nna,
@@ -229,7 +239,29 @@ myxl=c(0,1)
 plot( h1, col=rgb(0,0,1,1/4), xlim=myxl, main='Simulation data: SyMILR vs SVD vs SyMILR-perm' ,  xlab='RSQ' )
 plot( h2, col=rgb(1,0,0,1/4), xlim=myxl, add=T )
 plot( h3, col=rgb(0,1,0,1/4), xlim=myxl, add=T )
-# dev.off()
-print(t.test(simdatafrm[,nms[1]],simdatafrm[,nms[2]],paired=T))
-print(t.test(simdatafrm$symMeanCorrs,simdatafrm$svdMeanCorrs,paired=T))
+```
+
+
+## Look over results, statistically
+
+The r-squared value is most informative as it tells us how well the omnibus
+model predicts the known latent signal.
+
+Compare SiMLR R$^2$ vs. SVD R$^2$ with paired t-test.
+
+```{r}
+print(t.test(simdatafrm[,"symRSQ"],simdatafrm[,"svdRSQ"],paired=T))
+```
+
+
+Compare SiMLR R$^2$ vs. permuted SiMLR R$^2$ with paired t-test.
+
+```{r}
+print(t.test(simdatafrm[,"symRSQ"],simdatafrm[,"prmRSQ"],paired=T))
+```
+
+Compare SVD R$^2$ vs. permuted SiMLR R$^2$ with paired t-test.
+
+```{r}
+print(t.test(simdatafrm[,"svdRSQ"],simdatafrm[,"prmRSQ"],paired=T))
 ```
