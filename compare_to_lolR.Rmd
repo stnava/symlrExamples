@@ -21,6 +21,7 @@ This demonstrates:
 discriminant performance is impacted by these choices.
 
 ```{r,fig.width=14,fig.height=3}
+set.seed( 6 )
 require( lolR )
 require( ggplot2 )
 require( MASS )
