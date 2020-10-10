@@ -123,7 +123,7 @@ for ( sim in c(1:nsims)  ) {
 
     if ( doCorruption ) {
       # corrupt a portion of matrices - with random amounts of corruption each simulation
-      ruinRate = runif(3,0.2,0.8)
+      ruinRate = runif(3,0.1,0.9)
       corrSDs = abs( rnorm( 3, 10, 10 ) )
       corrMNs = rnorm( 3, 0, 10 )
       corrInds = round(npix[3] * ruinRate[3] ):npix[3]
