@@ -1,0 +1,335 @@
+---
+title: 'SiMLR Simulation Study: Demonstrate basic assumptions for SiMLR and compare to RGCCA'
+author: "Brian B. Avants et al."
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Decode known latent signal distributed across 3 matrices with SiMLR and RGCCA.
+For each run, we:
+
+* split the data matrices into train and test groups
+* run SiMLR, RGCCA and SGCCA on the triad of matrices
+* for SiMLR, we select a similarity measurement (via the `energyType` variable, default CCA-like)
+* run SiMLR on permuted matrices as a reference null result
+* predict the latent signal from the low-dimensional space given the embedding data from each method
+* use the amount of variance explained as the outcome measurement.
+
+Under the above simulation, a better method will more reliably explain the underlying true latent signal.
+
+The key metrics will compare the ability to predict the known latent signal
+in testing data based on the embeddings derived in an unsupervised dimensionality
+reduction step.  This is one of the primary ways in which SiMLR may be used
+to study high-dimensional datasets.
+
+The main metric will be the R$^2$ value between the model fit and the true
+latent signal in the test data.  Higher values (averaged over simulations)
+are associated with better performance.
+
+The simulation study has several parameter the user may explore to gain more
+insight. Default options corrupt each matrix by an amount drawn from a random uniform distribution.
+We also add modality-specific covariation via a smoothing operation.  This operation
+also dampens signal.
+
+Note: every run re-simulates the input data, re-runs SiMLR and RGCCA and compares
+the findings to the same applied to permuted data.  In a real example, you would
+only run SiMLR and RGCCA on permuted data in each loop.
+
+- Result: Demonstrate well-above chance recovery of latent signal competitive
+with or better than RGCCA and its sparse counterpart, SGCCA.
+
+- Result: SiMLR demonstrates more consistent signal recovery than RGCCA (strongly) and SGCCA (smaller but still distinct advantage).
+
+- The reduced variance in performance in likely due in part to both graph-based regularization and the primal formulation i.e. that we directly optimize the smoothed and sparsified feature vectors instead of using the dual formulation.
+
+```{r}
+set.seed( 88 )
+library( ANTsR )
+library( RGCCA )
+library( smoother )
+doA = FALSE
+smoothRows <- function( x ) {
+  window = sample( 25:150, 1 )
+  nr = nrow( x )
+  nc = ncol( x )
+  xout = x * 0
+  for ( k in 1:nr ) {
+    vex = x[k,]
+    xout[ k, ] = smoother::smth.gaussian( vex, window=window, tails=TRUE )
+  }
+  antsrimpute( xout )
+}
+
+doCorruption = TRUE
+nEmbeddings = nk = 18 # for latent signal
+if ( ! exists( "energyType" ) ) energyType = 'cca'
+if ( ! exists( "smaller" ) ) smaller = 0.67
+nsub = round( 400 * smaller ) # number of subjects
+npix = c( nsub*4, nsub*2, nsub * 8 ) # size of matrices are wildly different
+nComp = 4   # n components
+if ( ! exists( "nsims" ) ) nsims = 120
+nits = 100    # n-iterations
+nz = 0       # simulated signal parameter - not sensitive to this choice
+nzs = 1.5    # simulated signal parameter - not sensitive to this choice
+nzs2 = 1     # simulated signal parameter - not sensitive to this choice
+ntrain = 0.8 * round( nsub )
+train = sample( c( rep(T, ntrain ) ,rep(F, nsub - ntrain )) ) # train and test split
+test = !train
+nna = rep( NA, nsims )
+# this data frame will hold the results and allow us to answer questions about how noise impacts the outcome
+simdatafrm = data.frame(
+    symRSQ = nna,
+    rgccaRSQ = nna,
+    sgccaRSQ = nna,
+    prmRSQ = nna,
+    corrupt1 = nna,
+    corrupt2 = nna,
+    corrupt3 = nna
+    )
+################################################################################
+for ( sim in c(1:nsims)  ) {
+  set.seed( sim )
+    # the outcome's first column is the latent signal that we are seeking
+    outcome = scale( matrix(runif( nsub * nk, nz, nzs2 ),ncol=nk) )
+    # the 3 matrices below represent modality specific distributions
+    view1tx = scale(matrix( rnorm( npix[1]  * nk, nz, nzs ), nrow=nk ))
+    view2tx = scale(matrix( rnorm( npix[2]  * nk, nz, nzs*1.5 ), nrow=nk ))
+    view3tx = scale(matrix( rnorm( npix[3]  * nk, nz, nzs*0.8 ), nrow=nk ))
+    # below we mix the independent basis matrices with the true signal
+    mixmats  = diag( nk )
+    outcomex = outcome
+    # throw some difference in here - so really just the first column is the latent signal
+    reo=2:nk
+    outcomex[,reo]=sample(outcomex[,reo])
+    # here, we resample the diagonal matrix to provide some variability about
+    # where the signals appear across different modalities
+    # we also smooth to provide some modality specific covariation
+    smoosig = abs( rnorm( 3, 5, 1.5 ) ) # draw from a distribution of smoothing parameters
+    # smoosig = rep( 1.0, 3 ) # if you want to limit smoothing
+    if ( doA ) mixmat = as.matrix( smoothImage( as.antsImage( mixmats[sample(1:nrow(mixmats)),] %*% view1tx) , smoosig[3] ) ) else mixmat = smoothRows( mixmats[sample(1:nrow(mixmats)),] %*% view1tx )
+    mat1 = (outcomex %*% mixmat ) # mix in the real signal --- repeat the same procedures for all 3 views of data
+    outcomex=outcome
+    outcomex[,reo]=sample(outcomex[,reo])
+    if ( doA ) mixmat = as.matrix( smoothImage( as.antsImage( mixmats[sample(1:nrow(mixmats)),] %*% view2tx), smoosig[2] ) ) else mixmat = smoothRows( mixmats[sample(1:nrow(mixmats)),] %*% view2tx )
+    mat2 = (outcomex %*% mixmat )
+    outcomex = outcome
+    outcomex[,reo] = sample(outcomex[,reo])
+    if ( doA ) mixmat = as.matrix( smoothImage( as.antsImage( mixmats[sample(1:nrow(mixmats)),] %*% view3tx),  smoosig[1] ) ) else mixmat = smoothRows( mixmats[sample(1:nrow(mixmats)),] %*% view3tx )
+    mat3 = (outcomex %*% mixmat )
+    # small additive noise for each matrix
+    mat1 = mat1 + matrix( rnorm( prod(dim(mat1)), 0, 0.25 ), nrow=nsub)
+    mat2 = mat2 + matrix( rnorm( prod(dim(mat2)), 0, 0.25 ), nrow=nsub)
+    mat3 = mat3 + matrix( rnorm( prod(dim(mat3)), 0, 0.25 ), nrow=nsub)
+
+    if ( doCorruption ) {
+      # corrupt a portion of matrices - with random amounts of corruption each simulation
+      ruinRate = runif(3,0.2,0.8)
+      corrSDs = abs( rnorm( 3, 10, 10 ) )
+      corrMNs = rnorm( 3, 0, 10 )
+      corrInds = round(npix[3] * ruinRate[3] ):npix[3]
+      mat3[ ,corrInds] = matrix( rnorm( prod(dim(mat3[ , corrInds])), corrMNs[3], corrSDs[3] ), nrow=nsub)
+      corrInds = round(npix[2] * ruinRate[2] ):npix[2]
+      mat2[ ,corrInds] = matrix( rnorm( prod(dim(mat2[ , corrInds])), corrMNs[2], corrSDs[2] ), nrow=nsub)
+      corrInds = round(npix[1] * ruinRate[1] ):npix[1]
+      mat1[ ,corrInds] = matrix( rnorm( prod(dim(mat1[ , corrInds])), corrMNs[1], corrSDs[1] ), nrow=nsub)
+      }
+
+    # automate the regularization selection using up to 50 neighbors for each matrix
+    inmats = list( vox = mat1[train,], vox2 = mat2[train,], vox3 = mat3[train,] )
+    regs = regularizeSimlr( list( mat1[train,], mat2[train,], mat3[train,] ),
+                            rep( 50, 3 ), sigma = rep( 10.0, 3 ) )
+
+    result = simlr(
+      inmats,
+      smoothingMatrices = regs,
+      energyType = energyType,
+      initialUMatrix = nComp,
+      verbose = FALSE,
+      iterations = nits,
+      mixAlg = mixingMethod  ) # allows different methods to be compared
+
+    p1 = mat1 %*% abs(result$v[[1]])
+    p2 = mat2 %*% abs(result$v[[2]])
+    p3 = mat3 %*% abs(result$v[[3]])
+
+    nnn = 1:nComp
+    temp=data.frame( outc = outcome[,1], P1=p1[,nnn], P2=p2[,nnn], P3=p3[,nnn] )
+    mdlsym=lm( outc~.,data=temp[train,])
+    rsqsym = cor( temp$outc[test], predict(mdlsym,newdata=temp[test,]) )^2
+    rsqsym
+
+    # compare to permuted data
+    s1 = sample( 1:nsub)
+    s2 = sample( 1:nsub)
+    s3 = sample( 1:nsub)
+    pmat1=mat1[s1,]
+    pmat2=mat2[s2,]
+    pmat3=mat3[s3,]
+    inmats = list( vox = pmat1[train,], vox2 = pmat2[train,], vox3 = pmat3[train,] )
+    resultp = simlr(
+      inmats,
+      smoothingMatrices = regs,
+      energyType = energyType,
+      initialUMatrix = nComp,
+      verbose = F, iterations=5, mixAlg=mixingMethod  )
+
+    p1p = pmat1 %*% abs(resultp$v[[1]])
+    p2p = pmat2 %*% abs(resultp$v[[2]])
+    p3p = pmat3 %*% abs(resultp$v[[3]])
+
+    temp=data.frame( outc = outcome[,1], p1p[,nnn], p2p[,nnn], p3p[,nnn]   )
+    mdlprm=lm( outc~.,data=temp[train,])
+    rsqprm = cor( temp$outc[test], predict(mdlprm,newdata=temp[test,]) )^2
+
+    # compare to RGCCA - follow the recommended SABSCOV formulation
+    myrgcca = rgcca( # this initializes with SVD
+          A = list( mat1[train,],mat2[train,],mat3[train,]),
+          C = 1 - diag( 3 ),
+          tau = rep( 1, 3 ), # for rgcca
+          scheme = 'centroid',
+          ncomp = rep( nComp, 3 ),
+          scale = TRUE,
+          verbose = FALSE )
+    prgcca = cbind(
+      mat1 %*% myrgcca$a[[1]][,nnn],
+      mat2 %*% myrgcca$a[[2]][,nnn],
+      mat3 %*% myrgcca$a[[3]][,nnn] )
+    temp=data.frame( outc = outcome[,1], prgcca[,1:(max(nnn)*3)] )
+    mdlrgcca=lm( outc~.,data=temp[train,])
+    rsqrgcca = cor( temp$outc[test], predict(mdlrgcca,newdata=temp[test,]) )^2
+
+    # compare to SGCCA - follow suggested glioma example in documentation
+    myrgcca = sgcca( # this initializes with SVD
+          A = list( mat1[train,],mat2[train,],mat3[train,]),
+          scheme = "centroid",
+          ncomp = rep( nComp, 3 ),
+          scale = TRUE,
+          c1 = rep( 0.5, 3 ), # use something like simlr
+          verbose = FALSE )
+
+    prgcca = cbind(
+      mat1 %*% myrgcca$a[[1]][,nnn],
+      mat2 %*% myrgcca$a[[2]][,nnn],
+      mat3 %*% myrgcca$a[[3]][,nnn] )
+    temp=data.frame( outc = outcome[,1], prgcca[,1:(max(nnn)*3)] )
+    mdlrgcca=lm( outc~.,data=temp[train,])
+    rsqsgcca = cor( temp$outc[test], predict(mdlrgcca,newdata=temp[test,]) )^2
+
+  simdatafrm[sim,] = c(
+    rsqsym,
+    rsqrgcca,
+    rsqsgcca,
+    rsqprm, ruinRate )
+  print( paste("Simulation:",sim,"rsqsym",rsqsym, "rsqsgcca", rsqsgcca))
+  print( simdatafrm[sim,] )
+  cat("<<<<********>>>>\n")
+  }
+
+```
+
+
+Visualize the results.
+
+```{r}
+nms=c("symRSQ","rgccaRSQ","sgccaRSQ","prmRSQ")
+h1 = hist( simdatafrm[,nms[1]])
+h2 = hist( simdatafrm[,nms[2]])
+h2b = hist( simdatafrm[,nms[3]])
+h3 = hist( simdatafrm[,nms[4]])
+myxl=c(0,1)
+plot( h1, col=rgb(0,0,1,1/4), xlim=myxl,
+      main='Signal Recovery Results: \n SiMLR (blue) vs rgcca (red) vs sgcca (yellow) \n vs SiMLR-perm (green)' ,  xlab='RSQ' )
+plot( h2, col=rgb(1,0,0,1/4), xlim=myxl, add=T )
+plot( h2b, col=rgb(1,1,0,1/4), xlim=myxl, add=T )
+plot( h3, col=rgb(0,1,0,1/4), xlim=myxl, add=T )
+```
+
+
+## Look over results, statistically
+
+The r-squared value is most informative as it tells us how well the omnibus
+model predicts the known latent signal.
+
+Compare SiMLR R$^2$ vs. rgcca R$^2$ with paired t-test.
+
+```{r}
+print(t.test(simdatafrm[,"symRSQ"],simdatafrm[,"rgccaRSQ"],paired=T))
+```
+
+Compare SiMLR R$^2$ vs. sgcca R$^2$ with paired t-test.
+
+```{r}
+print(t.test(simdatafrm[,"symRSQ"],simdatafrm[,"sgccaRSQ"],paired=T))
+```
+
+
+Compare SiMLR R$^2$ vs. permuted SiMLR R$^2$ with paired t-test.
+
+```{r}
+print(t.test(simdatafrm[,"symRSQ"],simdatafrm[,"prmRSQ"],paired=T))
+```
+
+Compare rgcca R$^2$ vs. permuted SiMLR R$^2$ with paired t-test.
+
+```{r}
+print(t.test(simdatafrm[,"sgccaRSQ"],simdatafrm[,"prmRSQ"],paired=T))
+```
+
+mean performance
+
+```{r}
+print( colMeans( simdatafrm ) )
+```
+
+
+Visualize overall results
+
+```{r}
+simdatafrm = na.omit( simdatafrm )
+myline = 1:nrow( simdatafrm )
+plot( myline/max(myline), myline/max(myline), type='l', lty=5, main='Signal recovery comparison (r-squared): \n SiMLR vs RGCCA (blue triangle) and SGCCA (red x)', xlab='R-squared RGCCA and SGCCA', ylab='R-squared SiMLR' )
+points( simdatafrm[,"rgccaRSQ"], simdatafrm[,"symRSQ"], col='blue', ylab='Rsq - SiMLR', xlab='Rsq - RGCCA', pch=2 )
+points( simdatafrm[,"sgccaRSQ"], simdatafrm[,"symRSQ"], col='red', ylab='Rsq - SiMLR', xlab='Rsq - SGCCA', pch=4 )
+```
+
+
+Look at the effect of the corruption on the outcomes.
+
+```{r}
+summary( lm( symRSQ ~ corrupt1 + corrupt2 + corrupt3 , data=simdatafrm))
+summary( lm( rgccaRSQ ~ corrupt1 + corrupt2 + corrupt3 , data=simdatafrm))
+summary( lm( sgccaRSQ ~ corrupt1 + corrupt2 + corrupt3 , data=simdatafrm))
+```
+
+
+Better histogram
+
+```{r}
+library(viridis)
+library(ggplot2)
+library(dplyr)
+library( psych )
+opts <- options()  # save old options
+
+options(ggplot2.continuous.colour="viridis")
+options(ggplot2.continuous.fill = "viridis")
+theme_set(theme_minimal())
+
+myMeth = paste0("SiMLR-mix-",mixingMethod,'-E-',energyType)
+# Build dataset with different distributions
+mdata <- data.frame(
+  method = rep( c(myMeth, "RGCCA", "SGCCA" ),  each = nsims ),
+  value = c( simdatafrm[,1], simdatafrm[,2], simdatafrm[,3] )
+)
+histBy(mdata,"value","method",main='Signal Recovery Results: \n SiMLR (blue) vs rgcca (red) vs sgcca (green)' ,  xlab='RSQ')
+
+
+viridis_qualitative_pal7 <- c("#440154FF", "#FDE725FF", "#443A83FF",
+                              "#8FD744FF", "#31688EFF",  "#35B779FF",
+                              "#21908CFF")
+p <- mdata %>%
+  ggplot( aes(x=value, fill=method, color = method )) +
+    geom_density(  alpha=0.6, position = 'identity' ) +
+    theme(text = element_text(size = 20 ))   + theme(legend.position="top") + scale_fill_manual( values = c("#440154FF","#FDE725FF", "#21908CFF"))
+print( p )
+```
