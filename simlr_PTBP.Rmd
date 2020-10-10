@@ -32,6 +32,7 @@ library( randomForestExplainer )
 library(ANTsR)
 library(visreg)
 library(randomForest)
+if ( ! exists( "useRGCCA" ) ) useRGCCA = FALSE
 ```
 
 ## Basic Setup
@@ -250,7 +251,25 @@ if ( ! exists( "smoms") ) { # regularization matrices based on spatial proximity
 targetRank = rankData$suggestedRank
 # instead, for speed of example, reduce the value to K
 targetRank = 4
-initu = initializeSimlr( inmats, targetRank, jointReduction = T, uAlgorithm = 'ica' )
+mixAlg = 'ica'
+initu = initializeSimlr( inmats, targetRank, jointReduction = T, uAlgorithm = mixAlg )
+
+if ( useRGCCA ) {
+  if ( ! exists( "myrgcca" ) ) {
+    library( RGCCA )
+    # tau parameters below correspond to inter-battery factor analysis settings
+    # https://cran.r-project.org/web/packages/RGCCA/vignettes/vignette_RGCCA.pdf
+    myrgcca = sgcca( # this initializes with SVD
+      A = inmats,
+      C = 1 - diag( 3 ), # cca-like
+      c1 = 0.2,  # set to roughly match simlr
+      # tau = c( 1, 1 ), # for rgcca only
+      ncomp = c( targetRank, targetRank, targetRank ), scale = TRUE, verbose = TRUE )
+    mysym = list( v=myrgcca$a )
+    pred2 = NULL
+  }
+}
+
 if ( ! exists( "mysym" ) ) {
   mysym = simlr(
       voxmats = inmats,
@@ -260,6 +279,7 @@ if ( ! exists( "mysym" ) ) {
       randomSeed = 98,
       initialUMatrix = initu,
       energyType = energyType,
+      mixAlg = mixAlg,
       verbose = 1 )
   }
 ######
@@ -422,10 +442,20 @@ plot_multi_way_importance( importance_frame,  size_measure = "p_value" )
 Lastly, we visualize the feature vectors. First, thickness (top two).
 
 ```{r thksimlr4,eval=TRUE,echo=FALSE}
-tImgs = matrixToImages(t(mysym$v[[1]][,1:2]),thkmask)
 template = antsImageRead( paste0(  bd, 'PTBP_T1_BrainCerebellum.nii.gz' ) )
-plot( template, abs(tImgs[[1]])/max(abs(tImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
-plot( template, abs(tImgs[[2]])/max(abs(tImgs[[2]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
+tImgs = matrixToImages(t(mysym$v[[1]][,1:4]),thkmask)
+if ( !useRGCCA ) {
+  plot( template, abs(tImgs[[1]])/max(abs(tImgs[[1]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
+  plot( template, abs(tImgs[[2]])/max(abs(tImgs[[2]])), window.overlay=c(0.1,1), axis=3, nslices=16 )
+}
+if ( useRGCCA ) {
+  k = 4
+  temp1 = tImgs[[k]] * thresholdImage( tImgs[[k]], 1e-6, Inf )
+  temp2 = ( tImgs[[k]] * (-1.0) ) * thresholdImage( ( tImgs[[k]] * (-1.0) ), 1e-6, Inf )
+  layout( matrix( 1:2,nrow=1))
+  plot( template, temp1/max(abs(temp1)), window.overlay=c(0.1,1), axis=3, nslices=16 )
+  plot( template, temp2/max(abs(temp2)), window.overlay=c(0.1,1), axis=3, nslices=16 )
+}
 ```
 
 Fractional anisotropy features.

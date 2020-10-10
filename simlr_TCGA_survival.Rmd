@@ -1,0 +1,331 @@
+---
+title: "SiMLR vs RGCCA: Cancer multi-omics data"
+output: html_document
+urlcolor: blue
+---
+
+
+```{r init,echo=FALSE,message=FALSE,warning=FALSE}
+set.seed( 98 )
+library( ANTsR )
+library( RGCCA )
+library( measures )
+library( survival )
+library( survcomp )
+
+### collect data
+if ( ! exists( "organ" ) ) organ = 'gbm'
+fns = Sys.glob( paste0( "~/code/symlrExamples/multiomics/", organ, "/*txt" ) )
+if ( dir.exists( "/capsule/data/" ) )
+  fns = Sys.glob( paste0( "/capsule/data/", organ, "/*txt" ) )
+if ( dir.exists( "/root/capsule/data/" ) )
+  fns = Sys.glob( paste0( "/root/capsule/data/", organ, "/*txt" ) )
+
+if ( length( fns ) != 4 ) stop("Files do not exist")
+pSel = 0.2
+if ( organ == 'gbm' ) {
+  datalabel2 = 'KIRC (kidney)'
+  datalabel1 = 'GBM (glioblastoma, brain)'
+  clin <- read.table( fns[4],stringsAsFactors = FALSE , header=TRUE)
+  clin$PatientID = toupper( clin$PatientID )
+  m1 = t( read.table( fns[1], header=T ) )
+  m2 = t( read.table( fns[2], header=T ) )
+  m3 = t( read.table( fns[3], header=T ) )
+  m1nms = rownames( m1 )
+  m2nms = rownames( m2 )
+  m3nms = rownames( m3 )
+  unms = intersect( m1nms, m2nms )
+  unms = intersect( unms, m3nms )
+  clinFilt = clin[ clin$PatientID %in% substr(unms,0,12), ]
+  clinFilt = clinFilt[ order( clinFilt$PatientID ), ]
+  m1Filt = m1[ m1nms %in% unms, ]
+  m2Filt = m2[ m2nms %in% unms, ]
+  m3Filt = m3[ m3nms %in% unms, ]
+  m1Filt = m1Filt[ order( rownames( m1Filt ) ), ]
+  m2Filt = m2Filt[ order( rownames( m2Filt ) ), ]
+  m3Filt = m3Filt[ order( rownames( m3Filt ) ), ]
+  m1nms = substr(rownames( m1Filt ),0,12)
+  m2nms = substr(rownames( m2Filt ),0,12)
+  m3nms = substr(rownames( m3Filt ),0,12)
+}
+if ( organ == 'kidney' ) {
+  datalabel1 = 'KIRC (kidney)'
+  datalabel2 = 'GBM (glioblastoma, brain)'
+  clin <- read.table( fns[4],stringsAsFactors = FALSE , header=TRUE)
+  m1 = t( read.table( fns[1], header=T ) )
+  m2 = t( read.table( fns[2], header=T ) )
+  m3 = t( read.table( fns[3], header=T ) )
+  m1nms = rownames( m1 )
+  m1nms = gsub(  "[.]", "-" , m1nms )
+  m2nms = rownames( m2 )
+  m2nms = gsub(  "[.]", "-" , m2nms )
+  m3nms = rownames( m3 )
+  m3nms = gsub(  "[.]", "-" , m3nms )
+  unms = intersect( m1nms, m2nms )
+  unms = intersect( unms, m3nms )
+  clinFilt = clin[ clin$PatientID %in% unms, ]
+  clinFilt = clinFilt[ order( clinFilt$PatientID ), ]
+  m1Filt = m1[ m1nms %in% unms, ]
+  m2Filt = m2[ m2nms %in% unms, ]
+  m3Filt = m3[ m3nms %in% unms, ]
+  m1Filt = m1Filt[ order( rownames( m1Filt ) ), ]
+  m2Filt = m2Filt[ order( rownames( m2Filt ) ), ]
+  m3Filt = m3Filt[ order( rownames( m3Filt ) ), ]
+  m1nms = rownames( m1Filt )
+  m1nms = gsub(  "[.]", "-" , m1nms )
+  m2nms = rownames( m2Filt )
+  m2nms = gsub(  "[.]", "-" , m2nms )
+  m3nms = rownames( m3Filt )
+  m3nms = gsub(  "[.]", "-" , m3nms )
+  }
+if ( organ == "Breast" ) {
+  datalabel2 = 'KIRC'
+  datalabel1 = 'BIC'
+  clinFilt <- read.table( fns[4],stringsAsFactors = FALSE , header=TRUE)
+  clinFilt = clinFilt[ order( clinFilt$PatientID ), ]
+  clinFilt$PatientID = substr( clinFilt$PatientID, 0, 19 )
+  clinFilt$PatientID = gsub(   "-", ".",clinFilt$PatientID )
+  m1Filt = t( read.table( fns[1], header=T ) )
+  m2Filt = t( read.table( fns[2], header=T ) )
+  m3Filt = t( read.table( fns[3], header=T ) )
+  m1Filt = m1Filt[ order( rownames( m1Filt ) ), ]
+  m2Filt = m2Filt[ order( rownames( m2Filt ) ), ]
+  m3Filt = m3Filt[ order( rownames( m3Filt ) ), ]
+  m1nms = substr(rownames( m1Filt ),0,19)
+  m2nms = substr(rownames( m2Filt ),0,19)
+  m3nms = substr(rownames( m3Filt ),0,19)
+  pSel = 0.333
+}
+stopifnot( all.equal(  m1nms, m2nms ) )
+stopifnot( all.equal(  m1nms, m3nms ) )
+stopifnot( all.equal(  m1nms, clinFilt$PatientID ) )
+if ( ! organ %in% c("Breast","kidney", "gbm" ) ) stop("Need to choose organ = gbm, Breast or kidney")
+myn = nrow( m1Filt )
+myps = c(  ncol(m1Filt), ncol(m2Filt), ncol(m3Filt) )
+```
+
+## Multi-omics prediction of cancer survival
+
+We compare two dimensionality reduction methods with respect to glioblastoma
+brain cancer survival prediction based on multi-omics data.  The biological data
+includes $n=$ `r myn` subjects with:
+
+* Gene expression: with $p=$ `r myps[1]` predictors; see [Goodwin, et. al. for background](https://pubmed.ncbi.nlm.nih.gov/27184599/)
+
+* Methylomics/DNA methylation: with $p=$ `r myps[2]` predictors; see ["Profiling genome-wide DNA methylation"](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4926291/) for background;
+
+* Transcriptomics/micro RNA expression: with $p=$ `r myps[3]` predictors; see ["RNA sequencing: advances, challenges and opportunities" for background](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6202627/);
+
+and is complemented by survival data (number of days since diagnosis
+  and whether or not death has occurred at that time).
+
+The hypothesis is that this collection of measurements will improve
+our ability to predict patient-specific outcomes.  However, these data are fairly
+high-dimensional.  As such, targeted dimensionality reduction is needed to
+overcome the $p >> n$ problem (where $p$, here, refers to predictors) in order
+to allow low-dimensional versions of these predictors
+(i.e. embeddings) to be used in a classical regression context.
+
+The statistical model is a Cox proportional hazards regression model implemented
+in the `coxph` function in the `survival` package.  We evaluate concordance in
+test data via the `survcomp` package.  Concordance is similar to a rank
+correlation method and is used to assess agreement of the predicted
+outcomes with true outcomes.  Its value under the null hypothesis of no
+predictive value is 0.5.  Values greater than roughly 0.6 show some evidence of
+predictive power.
+
+Data is the `r datalabel1` set from [the multi-omic benchmark collection](http://acgt.cs.tau.ac.il/multi_omic_benchmark/download.html).
+The published paper associated with this benchmark is [here](https://pubmed.ncbi.nlm.nih.gov/30295871/).
+We chose the `r organ` data as it allowed a train-test
+split with sufficient variability in both train and test groups.  These data
+are collected from The Cancer Genome Atlas (TCGA).
+
+The benchmark paper above showed that
+"with respect to survival, MCCA had the total best prognostic value" where
+MCCA refers to mulitiple canonical correlation analysis ( pairwise CCA across
+  all pairs ).
+Thus, the comparison -- done here -- between RGCCA and SiMLR with a CCA-like
+objective function is pertinent. Nevertheless, these approaches should not be
+considered as the best strategy given that single-omic analysis did nearly as well.
+The authors find that "analysis of multi-omics data does not consistently
+provide better prognostic value and clinical significance compared to analysis
+of single-omic data alone, especially when different single-omics are used
+for each cancer types".
+
+
+The study design is fairly simple.  We first split the data into 80\% training
+and 20\% testing sets.  Subsequently, for both RGCCA and SiMLR, we perform:
+
+* in training data, we perform supervised dimensionality
+reduction where the 'omics data is jointly reduced
+with both death and survival time acting as a fourth matrix (we subsample 95\%
+  of the data to do this which allows repeated experiments to be performed);
+
+* training a Cox model with the low-dimensional bases derived from the 'omics
+data in the previous step;
+
+* prediction of the outcome in test data and evaluation of prediction
+accuracy with the concordance metric.
+
+We repeat the above experiments over $k$ resamplings of the data in order to
+gain an estimate of the difference in performance between SiMLR and RGCCA with
+different input data.
+We also test at two different sparseness levels: moderately sparse (0.5 for both) and highly
+sparse (0.9 for SiMLR and 0.1 for RGCCA) where these values impact
+the sparseness of the derived feature vectors.
+
+In this evaluation, SiMLR shows a small advantage over RGCCA in terms of
+predictive performance as measured by concordance in test data.  Furthermore,
+in contrast to RGCCA, SiMLR's feature vectors are not only sparse but also
+smooth and unsigned (non-negative) which aids interpretation and may
+prevent overfitting, thus improving generalization.  In the example
+code below, graph-based regularization parameters are selected to include
+roughly 2.5\% of the predictors in each predictor 'omics matrix
+(see the call to the `regularizeSimlr` function).  As such, regularization is
+present but neither overwhelming nor optimized for this data.  I.e.
+this value was chosen based on the desire for a small amount of denoising in
+the solution space.  Neither method was optimized for this
+problem in terms of data selection, parameter or pre-processing choices.
+As such, this acts as a fairly unbiased comparison of these tools.
+*To provide further evidence of this, the script can easily be modified to
+run on the **`r datalabel2`** data from the benchmark site above*.  In our
+experiments, similar trends are found in this related dataset in a different
+biological system.
+
+```{r}
+source("~/code/ANTsR/R/multiscaleSVDxpts.R")
+isTrain = rep( TRUE, nrow( m1Filt ) )
+clinFilt[,"Death"] = antsrimpute( clinFilt[,"Death"], FUN=median )
+balancedTest = caret::createDataPartition(  clinFilt[,"Death"],  p=pSel )$Resample1
+isTrain[ balancedTest ] = FALSE
+trainer = list( m1Filt[isTrain,], m2Filt[isTrain, ], m3Filt[isTrain,], clinFilt[isTrain,2:3] )
+tester = list( m1Filt[!isTrain,], m2Filt[!isTrain, ], m3Filt[!isTrain,], clinFilt[!isTrain,2:3] )
+kidney = list( data.train = trainer, data.test = tester )
+if ( ! exists( "mixAlg" ) ) mixAlg =  'svd'
+fixMat <- function( x ) {
+  vv = apply( x, FUN=var, MARGIN=2 )
+  ww = which( vv == 0 )
+  for ( j in ww  ) {
+    x[,ww] = rnorm( nrow(x) )
+  }
+  x
+}
+typTe = kidney$data.test[[4]]
+typTr = kidney$data.train[[4]]
+nnn = round( nrow( kidney$data.train[[1]] ) * 0.95 )
+myresults = data.frame( simCox = NA, rgCox = NA, sp = NA )
+ct = 1
+if ( ! exists( "sparSearch" ) ) sparSearch = c( 0.5, 0.75, 0.25  )
+nComponents = 2
+if ( ! exists( "nBootStrapRuns" ) ) nBootStrapRuns = 10
+for ( sp in sparSearch ) {
+  it = 1
+  for ( it in it:nBootStrapRuns ) {
+    myresults[ct,"sp"] = sp
+    # resampling/bootstrapping
+    trainData = list()
+    sss = sample( 1:nrow( kidney$data.train[[1]] ), nnn, replace=FALSE )
+    for ( k in 1:3 )
+      trainData[[k]] = fixMat( kidney$data.train[[k]][sss,] )
+    trainData[[4]] = data.matrix( antsrimpute( kidney$data.train[[4]][sss,], median ) )
+    # parameters were set s.t. a small amount of gaussian smoothing results
+    if ( ! exists( "regs" ) ) regs = regularizeSimlr( trainData, fraction=0.025,  sigma=c(3,3,3,1) )
+    # below will give a warning about number of components but ok to ignore
+    spn = 1.0 - sp
+    sparVals = c( rep( sp, 3 ), 0.0 ) # these lead to roughly similar sparseness
+    sparVals2 = c(spn,spn,spn, 1 ) # across both SiMLR and RGCCA
+    simresult = simlr(
+      trainData,
+      regs,
+      iterations = 100,
+      sparsenessQuantiles = sparVals,
+      initialUMatrix = nComponents,
+      mixAlg = mixAlg,
+      jointInitialization = TRUE,
+      energyType = 'regression',
+      verbose = FALSE
+      )
+  #############################################
+    proj1 = trainData[[1]] %*% simresult$v[[1]]
+    proj2 = trainData[[2]] %*% simresult$v[[2]]
+    proj3 = trainData[[3]] %*% simresult$v[[3]]
+    trdf = data.frame( proj1=proj1, proj2=proj2, proj3=proj3 )
+    proj1 = antsrimpute(kidney$data.test[[1]] %*% simresult$v[[1]])
+    proj2 = antsrimpute(kidney$data.test[[2]] %*% simresult$v[[2]])
+    proj3 = antsrimpute(kidney$data.test[[3]] %*% simresult$v[[3]])
+    tedf = data.frame( proj1=proj1, proj2=proj2 , proj3=proj3 )
+    trdf$Survival = antsrimpute( typTr[sss,1] )
+    trdf$Death = antsrimpute(typTr[sss,2], FUN=median )
+    tedf$Survival = antsrimpute(typTe[,1], FUN=median )
+    tedf$Death = antsrimpute(typTe[,2], FUN=median )
+    coxFitSim <- coxph(Surv(time = Survival , event = Death) ~ . , data = trdf )
+    pred_validation = predict( coxFitSim, newdata = tedf )
+    # higher values are better - like a rank correlation
+    cindex_validation = survcomp::concordance.index(
+      pred_validation,
+      surv.time  = tedf$Survival,
+      surv.event = tedf$Death, method = "noether" )$c.index
+    myresults[ct, "simCox"] = cindex_validation
+
+    # now do RGCCA
+    myrgcca = sgcca( # this initializes with SVD
+              A = trainData,
+              C = 1 - diag( length( trainData ) ), # cca-like
+              c1 = sparVals2,  # set to roughly match simlr
+              ncomp = c( nComponents, nComponents, nComponents, 2 ),
+              scale = TRUE,
+              verbose = FALSE )
+
+    proj1 = trainData[[1]] %*% myrgcca$a[[1]]
+    proj2 = trainData[[2]] %*% myrgcca$a[[2]]
+    proj3 = trainData[[3]] %*% myrgcca$a[[3]]
+    trdf = data.frame( proj1=proj1, proj2=proj2, proj3=proj3 )
+    proj1 = antsrimpute(kidney$data.test[[1]] %*% myrgcca$a[[1]])
+    proj2 = antsrimpute(kidney$data.test[[2]] %*% myrgcca$a[[2]])
+    proj3 = antsrimpute(kidney$data.test[[3]] %*% myrgcca$a[[3]])
+    tedf = data.frame( proj1=proj1, proj2=proj2 , proj3=proj3 )
+    trdf$Survival = antsrimpute( typTr[sss,1] )
+    trdf$Death = antsrimpute(typTr[sss,2], FUN=median )
+    tedf$Survival = antsrimpute(typTe[,1], FUN=median )
+    tedf$Death = antsrimpute(typTe[,2], FUN=median )
+    coxFit <- coxph(Surv(time = Survival , event = Death) ~ . , data = trdf )
+    pred_validation = predict( coxFit, newdata = tedf )
+    cindex_validation = survcomp::concordance.index(pred_validation,
+      surv.time  = tedf$Survival,
+      surv.event = tedf$Death, method = "noether")$c.index
+    myresults[ct,"rgCox"] = cindex_validation
+    print( myresults[ct,] )
+    print( paste(ct, ":", myresults[ct, "simCox"], myresults[ct, "rgCox"]))
+    ct = ct + 1
+    }
+  message("Example CoxFit for SiMLR")
+  print( summary( coxFitSim ) )
+  message( paste( "Compare concordance indices", sp ) )
+  losel = myresults$sp == sp
+  losel = losel &
+    !is.na( myresults[,  "simCox"] ) &
+    !is.na( myresults[,  "rgCox"] )
+  if ( sum(losel) > 2 )
+  if ( all( ! is.na(myresults[losel, "simCox"] ) ) &
+       all( ! is.na(myresults[losel,  "rgCox"] ) ) & ct > 3 ) {
+    print( t.test( myresults[losel,"simCox"], myresults[losel,"rgCox"], paired=T ) )
+    }
+  print( colMeans( myresults[losel,] , na.rm=T ) )
+  plot( myresults[losel,"simCox"], myresults[losel,"simCox"] - myresults[losel,"rgCox"], 
+        main=paste( 'SiMLR Concordance vs RGCCA Concordance @ sparseness:', sp ), 
+        xlab='SiMLR Concordance',
+        ylab='SiMLR Concordance minus RGCCA Concordance' )
+  referenceLine = sort(runif(25,min(myresults[losel,"simCox"]),max(myresults[losel,"simCox"])))
+  points( referenceLine, rep(0,25), type='l', col='red', lty=5 )
+  }
+##############################
+```
+
+Summarize results.
+
+```{r}
+knitr::kable( myresults )
+```
+
+Parameters: mixAlg `r mixAlg`, nComponents `r nComponents`.
+

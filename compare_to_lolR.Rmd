@@ -62,7 +62,9 @@ Y2[Y==1,1]=1
 regs = regularizeSimlr( list(X,Y2), knn = c(3,1)    )
 regs[[2]] = diag( 2 )
 sss = simlr( list( X, Y2 ) , initialUMatrix=3, smoothingMatrices = regs,
-  energyType = energyType, iterations=100 )
+  energyType = energyType, iterations=100,
+  constraint='Grassmann',
+  optimizationStyle='mixed' )
 data <- data.frame( x1 = X %*% sss$v[[1]][,1], x2=X %*% sss$v[[1]][,2], y=Y)
 data$y <- factor(data$y)
 g3 <- ggplot(data, aes(x=x1, y=x2, color=y)) +

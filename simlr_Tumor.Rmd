@@ -41,9 +41,11 @@ A <- ge_cgh_locIGR$multiblocks
 Loc <- factor(ge_cgh_locIGR$y)
 levels(Loc) <- colnames(ge_cgh_locIGR$multiblocks$y)
 A[[3]] = A[[3]][, -3]
+Areo = list( A[[3]], A[[1]], A[[2]] )
 # check dimensions of the blocks
 sapply(A, dim)
 C <- matrix(c(0,0,1,0,0,1,1,1,0),3,3)
+Creo = matrix( c( 0, 1, 1, 1, 0, 0, 1, 0, 0), 3, 3 )
 rgcca.glioma =
   rgcca( A, C, tau = c(1, 1, 0),
   ncomp = c(2, 2, 2),
@@ -67,14 +69,18 @@ thirdcol = 1 - rowSums( A[[3]] )
 Anew = A
 Anew[[3]] = cbind( A[[3]], thirdcol )
 regs[[3]] = diag( 3 )
-initu = initializeSimlr( Anew, 2, jointReduction=T, uAlgorithm = 'ica' )
+if ( ! exists( "mixAlg" ) ) mixAlg = 'pca'
+initu = initializeSimlr( Anew, 2, jointReduction=F, uAlgorithm = mixAlg )
 sResult = simlr( Anew,
   smoothingMatrices = regs,
   initialUMatrix = initu,
   iterations = 50,
+  connectors = list(  c( 3 ), c( 3 ), c(1,2) ),
   energyType = energyType,
-  constraint = 'Stiefel', # an advanced option
-  mixAlg = 'ica',
+  constraint = 'Grassmann',
+  expBeta = 0.0,
+  optimizationStyle = 'mixed',
+  mixAlg = mixAlg,
   verbose = T )
 plot( ts( sResult$totalEnergy) )
 row.names(sResult$u[[1]])=row.names(sgcca.glioma$Y[[1]])

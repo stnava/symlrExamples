@@ -158,6 +158,8 @@ for ( sim in c(1:nsims)  ) {
     rsqsym = cor( temp$outc[test], predict(mdlsym,newdata=temp[test,]) )^2
     rsqsym
 
+derka
+
     # compare to permuted data
     s1 = sample( 1:nsub)
     s2 = sample( 1:nsub)

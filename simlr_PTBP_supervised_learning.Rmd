@@ -1,0 +1,430 @@
+---
+title: 'The Pediatric Template of Brain Perfusion: Cross-validation study of supervised multivariate prediction with SiMLR and RGCCA'
+author: "Brian B. Avants et al."
+date: "`r Sys.Date()`"
+output: html_document
+urlcolor: blue
+---
+
+Similarity-driven multiview linear reconstruction is perhaps best thought of as a
+simultaneous dimensionality reduction and variable selection method.  The process
+is based on a mixed representation of the joint low-dimensional space of the modalities.
+Like other dimensionality reduction tools, these bases can be used for prediction,
+clustering or inference.  RGCCA is a closely related method that performs a multiple CCA
+and can be used in the same way as SiMLR.  RGCCA can also incorporate sparseness (SGCCA) but
+does not incude graph-based regularization or non-negativity constraints.  Furthermore,
+SiMLR and RGCCA use very different optimization approaches in order to find their
+solution/feature vectors.
+
+In this example, we use RGCCA and SiMLR to jointly decompose matrices of:
+
+* cortical thickness from T1-weighted neuroimaging;
+
+* fractional anisotropy from diffusion tensor neuroimaging;
+
+* cerebral blood flow from arterial spin labeling neuroimaging;
+
+* a demographic matrix that captures the subjects' age, gender and IQ scores.
+
+We assess the success of these decompositions by testing the ability -- in left out data --
+of the neuroimaging embeddings to predict age and IQ.
+In this comparison, the "best" method produces both minimal error and maximal correlation
+for each of the scores.  The error is measured across all cross-validation runs
+such that each subject is used as test data in one of the five folds.
+Based on benchmark results, the subject's age should be predicted accurately
+to (on average) less than 2 years.  See [the PTBP paper](https://pubmed.ncbi.nlm.nih.gov/25977810/)
+for details.
+
+## Load relevant packages
+
+```{r setup,eval=TRUE,results='hide',warning=FALSE,echo=FALSE}
+# set this for your own compilation
+bd = path.expand( "~/capsule/data/" )
+if ( ! dir.exists( bd ) ) bd = "./data/"
+set.seed( 808 )
+library( pander )
+library( ggplot2 )
+library( randomForestExplainer )
+library(ANTsR)
+library(visreg)
+library(randomForest)
+```
+
+## Basic Setup
+
+Get masks for each modality, along with matrices wherein the normalized
+data is stored.
+
+```{r dataio}
+neanatvecs=2
+thkmask=antsImageRead( paste(bd,"ptbp_mask_thickness.nii.gz",sep='') )
+qth=0.05
+mth='BH'
+demog=read.csv(paste(bd,"ptbp_summary_demographics.csv",sep='') )
+demog=demog[ , 1:19 ]
+```
+
+## Generic function to collect and organize data
+
+```{r genericvox}
+voxandeanatstudy <- function( demog, imgmat, imgmask,
+                              formulabase, formulatest,
+                              voi,
+                              exclusionThresh,
+                              baddata,
+                              outprefix,
+                              nv )
+  {
+  imgrowmeans=rowMeans( imgmat )
+  wp = rep( FALSE, nrow( demog ) )
+  for ( sub in unique( demog$SubID ) ) # get unique subjects
+    {
+    ww=which( demog$SubID == sub )
+    ww=ww[ !is.na( imgrowmeans[ww] )  &
+             imgrowmeans[ww] > exclusionThresh ]
+    if ( length( ww ) > 0 ) wp[ ww[ 1 ] ] = TRUE
+  }
+ return( wp )
+#  if ( ! all( is.na(baddata) ) ) # FIXME
+#   wp[  which(wp==TRUE)[ baddata ] ]=FALSE # bad data
+  ilist=matrixToImages( imgmat[wp,], imgmask )
+#  for ( i in 1:length(ilist) ) ilist[[i]]=smoothImage( ilist[[i]], 2.0 )
+  mydf=data.frame(
+                 Sex=demog[wp,]$Sex,
+                 AgeAtScan=demog[wp,]$AgeAtScan,
+                 PIQ=demog[wp,]$Performance.IQ,
+                 VIQ=demog[wp,]$Verbal.IQ,
+                 BV=demog[wp,]$BV,
+                 Cortex=demog[wp,]$Cortex,
+                 LadderCom=demog[wp,]$Teen.Ladder.Community.Score,
+                 LadderSES=demog[wp,]$Teen.Ladder.SES.score,
+                 Income=demog[wp,]$Income )
+  for ( kk in 2:ncol(mydf) ) mydf[,kk]=antsrimpute( mydf[,kk] )
+  imgmat=imageListToMatrix( ilist, imgmask )
+  locform=formula( paste( "imgmat ~", formulabase ,"+", formulatest ) )
+  mdl=lm( locform, data=mydf )
+  voxlm=bigLMStats( mdl , 1.e-8 )
+  print(paste("begin low",outprefix) )
+  lowmat = scale( lowrankRowMatrix( imgmat , 10 ), scale=FALSE )
+  print(paste("begin eanat",outprefix) )
+  imgeanat=sparseDecom( lowmat , imgmask, nvecs=nv, smooth=0.0,
+    sparseness=0.05, cthresh=20000, mycoption=1, its=1 )
+  rm( lowmat )
+  print(paste("end eanat",outprefix) )
+  eproj=abs(  imgeanat$eig  )
+  eproj=( eproj/rowSums(eproj) )
+  imgproj = imgmat %*% t( eproj  )
+  mydf=data.frame( mydf, imgproj )
+  print( names(mydf) )
+  formbase=formula( paste( "imgproj ~", formulabase ) )
+  formtest=formula( paste( "imgproj ~", formulabase ,"+", formulatest ) )
+  mdl1=lm( formbase, data=mydf )
+  mdl2=lm( formtest, data=mydf )
+  eanatlm=bigLMStats( mdl2 , 1.e-6 )
+  eseg=eigSeg( mask=imgmask, matrixToImages( imgeanat$eig, imgmask), F  )
+  ofn=paste( outprefix, '_eseg.nii.gz', sep='' )
+  antsImageWrite( eseg , ofn )
+  anv=anova( mdl1, mdl2 )
+  return( list(mydf=mydf,
+               voxlm=voxlm,
+               eanatlm=eanatlm,
+               eseg=eseg,
+               imgproj=imgproj,
+               whichSubjects=wp,
+               eanat=imgeanat,
+               anv=anv) )
+  }
+```
+
+
+# Collect each of the voxel-wise matrix modalities
+
+
+## Cortical Thickness data
+
+The thickness of the cortex is a well-known maturational index with
+rapid changes during adolescence.  Here, we use DiReCT in ANTs to estimate
+thickness from T1 data and stored the result, after normalization to a group
+template, in a matrix.  The PTBP paper describes this in more detail.
+The mask covers template cortex.
+
+```{r thkfun}
+############################################
+thkmask=antsImageRead( paste(bd,"ptbp_mask_thickness.nii.gz",sep='') )
+thkfn=paste(bd,"ptbp_vox_thk.mha",sep='')
+thkmat=as.matrix( antsImageRead( thkfn ) )
+thkmat[ is.na( thkmat ) ] = 0
+baddata=NA
+if ( ! exists("wthk")  ) {
+  wthk=voxandeanatstudy( demog, thkmat, thkmask,
+         formulathkbase, formulathktest, voi=voi,
+         exclusionThresh = 0.5, baddata=baddata,
+         outprefix='/tmp/Eanat_THK', nv=neanatvecs )
+#  qv=p.adjust( ethk$eanatlm$beta.pval[ voi, ], method='BH' )
+ # print( min(qv) )
+  }
+```
+
+## Fractional anisotropy (FA) data
+
+FA is a maturational index that relates to the connective structure in the
+brain and is complementary to cortical thickness (computation vs wiring).
+As with CT, the FA is normalizes to a template and collected into a matrix
+here.  The mask covers template white matter.
+
+```{r fafun}
+fafn=paste(bd,"ptbp_vox_fa.mha",sep='')
+famask=antsImageRead( paste(bd,"ptbp_mask_fa.nii.gz",sep='') )
+famat=as.matrix( antsImageRead( fafn ) )
+famat[ is.na( famat ) ] = 0
+baddata=c(42,44) # FA
+if ( ! exists("wfa")  ) {
+  wfa=voxandeanatstudy( demog, famat, famask,
+         formulathkbase, formulathktest, voi=voi,
+         exclusionThresh = 0.2, baddata=baddata,
+         outprefix='/tmp/Eanat_FA', nv=neanatvecs )
+ # qv=p.adjust( efa$eanatlm$beta.pval[ voi, ], method='BH' )
+#  print( min(qv) )
+  }
+```
+
+## Cerebral blood flow (CBF) data
+
+In contrast to the prior two measurements, CBF is a functional measurement
+related to blood flow or perfusion in the brain.  CBF is more variable
+during the day and with a variety of other factors in comparison to structural
+measurements.  However, it also shows general trends that relate to maturation.
+The matrix, here, covers the cortex.
+
+```{r cbffun}
+cbffn=paste(bd,"ptbp_vox_cbf.mha",sep='')
+cbfmat=as.matrix( antsImageRead( cbffn ) )
+cbfmat[ is.na( cbfmat ) ] = 0
+baddata=NA
+if ( ! exists("wcbf") ) {
+  wcbf=voxandeanatstudy( demog, cbfmat, thkmask,
+         formulathkbase, formulathktest, voi=voi,
+         exclusionThresh = 45, baddata=baddata,
+         outprefix='/tmp/Eanat_CBF', nv=neanatvecs )
+#  qv=p.adjust( ecbf$eanatlm$beta.pval[ voi,], method='BH' )
+ # print( min(qv) )
+  }
+```
+
+# Joint modeling of thickness, FA and CBF
+
+## SiMLR
+
+We first collect only subjects that have all 3 modalities.
+
+```{r estimateRank}
+if ( ! exists( "energyType" ) ) energyType = 'regression'
+haveAllMerge=( wthk & wfa & wcbf )
+inmats = list( thkmat[haveAllMerge,], famat[haveAllMerge,], cbfmat[haveAllMerge,] )
+demogMerge = demog[ haveAllMerge, ]
+demogMerge$Performance.IQ = antsrimpute( demogMerge$Performance.IQ )
+demogMerge$Verbal.IQ = antsrimpute( demogMerge$Verbal.IQ )
+demogMerge$FullScaleIQ = antsrimpute( demogMerge$FullScaleIQ )
+mdlMatrix = model.matrix( lm( BV ~
+  AgeAtScan + FullScaleIQ + Verbal.IQ + Performance.IQ + Sex,
+  data = demogMerge ))[,-1]
+if ( nrow(inmats[[1]]) != nrow( mdlMatrix ) )
+  stop(" nrow( nrow(inmats[[1]]) ) != nrow( mdlMatrix ) ")
+inmats[[4]] = mdlMatrix
+rankData = list( suggestedRank = 3 )  # simlrRankEstimate( 0.90, inmats[[1]], inmats[[2]], inmats[[3]] )
+```
+
+In this code chunk, we prepare regularization
+matrices (using wrapper functions from ANTsR), define the cross-validation
+runs and then call SiMLR and RGCCA on each fold, storing appropriate results.
+
+```{r simlr}
+if ( ! exists( "smoms") ) { # regularization matrices based on spatial proximity
+  smoms = list()
+  spatmat = t( imageDomainToSpatialMatrix( thkmask, thkmask ) )
+  smoms[[1]] = knnSmoothingMatrix( spatmat, k = 7^3, sigma = 125 )
+  spatmat = t( imageDomainToSpatialMatrix( famask, famask ) )
+  smoms[[2]] = knnSmoothingMatrix( spatmat, k = 7^3, sigma = 125 )
+  smoms[[3]] = smoms[[1]]
+  temp = cor( mdlMatrix )
+  temp[ temp < 0.5 ] = 0
+  smoms[[4]] = temp
+}
+# define 5-fold cross-validation groups
+if ( ! exists( "mixAlg" ) ) mixAlg = 'svd'
+nGroups = 5
+cvGroups = rep( c(1:nGroups), nrow( inmats[[1]] ) )[ 1:nrow( inmats[[1]] ) ]
+for ( whichGroup in 1:nGroups ) {
+    isTraining = rep( TRUE, nrow( inmats[[1]] ) )
+    isTraining[ cvGroups == whichGroup ] = FALSE
+    inmatsTrain = list()
+    for ( j in 1:length( inmats ) ) {
+      inmatsTrain[[j]] = inmats[[j]][ isTraining, ]
+    }
+    # use the max rank which is limited by the smallest matrix
+    targetRank = ncol( mdlMatrix ) - 1
+    { # rgcca
+        rgccaT0 = Sys.time()
+        library( RGCCA )
+        # tau parameters below correspond to inter-battery factor analysis settings
+        # https://cran.r-project.org/web/packages/RGCCA/vignettes/vignette_RGCCA.pdf
+        myrgcca = sgcca( # this initializes with SVD
+          A = inmatsTrain,
+          C = 1 - diag( length( inmatsTrain ) ), # cca-like
+          c1 = c(0.2,0.2,0.2,1),  # set to roughly match simlr
+          ncomp = c( targetRank, targetRank, targetRank, targetRank ),
+          scale = TRUE,
+          verbose = TRUE )
+        myDimRed = list( v=myrgcca$a )
+        pred2 = NULL
+        rgccaT1 = Sys.time()
+        message( paste( difftime( rgccaT1, rgccaT0, units='mins' ) ) )
+#        for ( mm in 1:length( myDimRed$v ) )
+ #         antsImageWrite( as.antsImage(  myDimRed$v[[ mm ]] ),
+  #          paste0("/results/SiMLR_CV",whichGroup,mixAlg,"_kRGCCA", mm, ".mha") )
+      }
+
+      { # simlr
+      simlrT0 = Sys.time()
+      mysym = simlr(
+          voxmats = inmatsTrain,
+          smoothingMatrices = smoms,
+          iterations = 50,
+          sparsenessQuantiles = c( rep(0.9,3), 0.5 ),
+          initialUMatrix = targetRank,
+          energyType = 'regression',
+          mixAlg = mixAlg,
+          verbose = 1 )
+        simlrT1 = Sys.time()
+        message( paste( difftime( simlrT1, simlrT0, units='mins' ) ) )
+       # for ( mm in 1:length( mysym$v ) )
+       #   antsImageWrite( as.antsImage(  mysym$v[[ mm ]] ),
+       #     paste0("/results/SiMLR_CV",whichGroup,mixAlg,"_kReg", mm, ".mha") )
+
+        simlrT2 = Sys.time()
+        mysymcca = simlr(
+            voxmats = inmatsTrain,
+            smoothingMatrices = smoms,
+            iterations = 50,
+            sparsenessQuantiles = c( rep(0.9,3), 0.5 ),
+            initialUMatrix = targetRank,
+            energyType = 'cca',
+            mixAlg = mixAlg,
+            verbose = 1 )
+        simlrT3 = Sys.time()
+        message( paste( difftime( simlrT3, simlrT2, units='mins' ) ) )
+        # use below to write feature matrices to disk
+        # for ( mm in 1:length( mysymcca$v ) )
+        #  antsImageWrite( as.antsImage(  mysymcca$v[[ mm ]] ),
+        #    paste0("/results/SiMLR_CV",whichGroup,mixAlg,"_kCCA", mm, ".mha") )
+      }
+######
+###### assessTestingError
+######
+    myOPRE = "/results/predDF_"
+    mdRGCCA = list( v=myrgcca$a )
+    myTestList = list( RGCCA = mdRGCCA , SiMLRReg = mysym , SiMLRCCA = mysymcca )
+    nms = names( myTestList )
+    myVOIs = c( "AgeAtScan", "Performance.IQ", "Verbal.IQ", "FullScaleIQ" )
+    predDF = demogMerge[ , myVOIs]
+    colnames( predDF ) = paste0( "RGCCAPred",myVOIs )
+    predDemog = cbind( demogMerge, predDF )
+    predDF = demogMerge[ , myVOIs]
+    colnames( predDF ) = paste0( "SiMLRRegPred",myVOIs )
+    predDemog = cbind( predDemog, predDF )
+    colnames( predDF ) = paste0( "SiMLRCCAPred",myVOIs )
+    predDemog = cbind( predDemog, predDF )
+    for ( myvoi in myVOIs ) {
+      ct = 1
+      for ( myDimRed in myTestList ) {
+        myColName = paste0(  nms[ct], "Pred" ,  myvoi )
+        predDemog[,myColName] = NA
+        pthk = as.matrix( inmats[[1]] %*% ( myDimRed$v[[1]] ) )
+        pfa = as.matrix(inmats[[2]] %*% ( myDimRed$v[[2]] ))
+        pcbf = as.matrix(inmats[[3]] %*% ( myDimRed$v[[3]] ))
+        myproj = as.matrix(inmats[[4]] %*% myDimRed$v[[4]])
+        colnames(pthk)=colnames(pfa)=colnames(pcbf)=1:ncol(pcbf)
+        demogTrTe = cbind( demogMerge, TH=pthk,  CB=pcbf, FA=pfa, outcome = myproj )
+        demogTrTe[ , myvoi] = antsrimpute( demogTrTe[ , myvoi] )
+        myform = as.formula( paste( myvoi, " ~  Sex +
+          TH.1 + TH.2 + TH.3 + TH.4 + CB.1 + CB.2 + CB.3 + CB.4 + FA.1 + FA.2 + FA.3 + FA.4 "  ) )
+        m1 = lm( myform, data = demogTrTe[ isTraining, ] ) # simlr VIQ
+        predVAR = predict( m1, newdata = demogTrTe[ !isTraining, ] )
+        print( paste( myvoi, nms[ct], "ERROR",
+          mean( abs( predVAR - demogTrTe[ !isTraining, myvoi ] ), na.rm=TRUE ),
+          "CORR", cor( predVAR, demogTrTe[ !isTraining, myvoi]  ) ) )
+        predDemog[ !isTraining,myColName] = predVAR
+        ct = ct + 1
+        }
+      }
+    outcsv = paste0( myOPRE, whichGroup, mixAlg, ".csv")
+    write.csv( predDemog, outcsv, row.names = FALSE )
+    }
+
+```
+
+## Final cross-validated results
+
+The summary results are here.
+
+```{r finalResultsNumbers}
+library( ANTsR )
+library(ANTsR)
+if ( ! exists( "mixAlg" ) ) mixAlg = 'svd'
+pdfns = Sys.glob( paste0( myOPRE, "*", mixAlg, ".csv" ) )
+presser = read.csv( pdfns[1] )
+myVOIs = c( "AgeAtScan", "Performance.IQ", "Verbal.IQ", "FullScaleIQ" )
+trueVals = presser[ , myVOIs ]
+pCols = 20:31
+subber = presser[,pCols]
+for ( k in 2:length( pdfns ) ) {
+  presser2 = read.csv( pdfns[k] )
+  presser2 = presser2[,pCols]
+  subber[ !is.na( presser2 ) ] = presser2[ !is.na( presser2 ) ]
+  }
+plist = list( 1:4, 5:8, 9:12 )
+summarizeAll = trueVals
+for ( ww in 1:length( plist ) ) {
+  subberLoc = subber[,plist[[ww]]]
+  summarizeAll = cbind(summarizeAll, subberLoc)
+  cat("*****************************\n")
+  for ( k in 1:4 ) {
+    print( paste( colnames( subberLoc )[k],
+      mean(  abs( trueVals[,k] - subberLoc[,k]), na.rm=T ),
+      cor( antsrimpute(trueVals[,k]), antsrimpute(subberLoc[,k]) ) ) )
+    }
+  }
+cat("*****************************\n")
+write.csv( summarizeAll, paste0( dirname(myOPRE),"/supervised_ptbp_summary_results_", mixAlg, ".csv"), row.names = FALSE )
+layout( matrix( 1:3, nrow=1, byrow=TRUE ) )
+mylims = range( summarizeAll$AgeAtScan ) + c(-0.5,0.5)
+eage = round(mean(abs(summarizeAll$AgeAtScan-summarizeAll$RGCCAPredAgeAtScan))*1000)/1000
+plot( summarizeAll$AgeAtScan, summarizeAll$RGCCAPredAgeAtScan,
+  main=paste0('RGCCA-scca: ', eage,' years MAE'), xlim=mylims,ylim=mylims, xlab='True Age', ylab='Predicted Age')
+eage = round(mean(abs(summarizeAll$AgeAtScan-summarizeAll$SiMLRRegPredAgeAtScan))*1000)/1000
+plot( summarizeAll$AgeAtScan, summarizeAll$SiMLRRegPredAgeAtScan,
+  main=paste0('SiMLR-Reg-Mix-',mixAlg,': ', eage,' years MAE '), xlim=mylims,ylim=mylims, xlab='True Age', ylab='Predicted Age')
+eage = round(mean(abs(summarizeAll$AgeAtScan-summarizeAll$SiMLRCCAPredAgeAtScan))*1000)/1000
+plot( summarizeAll$AgeAtScan, summarizeAll$SiMLRCCAPredAgeAtScan,
+  main=paste0('SiMLR-CCA-Mix-',mixAlg,': ', eage,' years MAE '), xlim=mylims,ylim=mylims, xlab='True Age', ylab='Predicted Age')
+#
+# mylims = range( summarizeAll$FullScaleIQ ) + c(-0.5,0.5)
+# plot( summarizeAll$FullScaleIQ, summarizeAll$RGCCAPredFullScaleIQ,
+#  main='RGCCA-scca: 10.33 MAE', xlim=mylims,ylim=mylims, xlab='True FIQ', ylab='Predicted FIQ')
+# plot( summarizeAll$FullScaleIQ, summarizeAll$SiMLRRegPredFullScaleIQ,
+#  main='SiMLR-Reg: 9.88 MAE', xlim=mylims,ylim=mylims, xlab='True FIQ', ylab='Predicted FIQ')
+# plot( summarizeAll$FullScaleIQ, summarizeAll$SiMLRCCAPredFullScaleIQ,
+#  main='SiMLR-CCA: 11.1 MAE', xlim=mylims,ylim=mylims, xlab='True FIQ', ylab='Predicted FIQ')
+```
+
+
+# Discussion
+
+* Reviewed how to set up simlr for imaging studies including regularization
+and parameter setting.
+
+* Compared these methods to traditional dimensionality reduction tools for neuroimaging
+
+* We showed strategies for using these modalities together to find meaningful predictors.
+
+* Performed some visualization and interpretation demonstrating the SiMLR outperforms RGCCA's implementation of sparse CCA for brain-based age prediction.
