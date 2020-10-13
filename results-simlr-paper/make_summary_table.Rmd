@@ -24,7 +24,7 @@ resultsdf = data.frame(
   study=NA, RGCCA=NA, SGCCA=NA, SimCCAICA=NA, SimCCASVD=NA, SimRegICA=NA,
   SimRegSVD=NA, metric=NA )
 rct = 1
-resultsdf[rct,] = c( "Recon-Signal",
+resultsdf[rct,] = c( "Signal-Sens.",
   mean_sd( simCCAMIXICA$rgccaRSQ )[3],
   mean_sd( simCCAMIXICA$sgccaRSQ )[3],
   mean_sd( simCCAMIXICA$symRSQ )[3],
@@ -66,14 +66,14 @@ resultsdf[rct,] = c( "brainAge",
   "MAE" )
 
 rct = rct + 1
-resultsdf[rct,] = c( "PING-SNPs",
+resultsdf[rct,] = c( "PING-SNP",
     " N/A ",
     " N.S.",
     " N/A ",
     " 3 components ",
     " 6 components ",
     " N/A ",
-    "Inferential" )
+    "MAE" )
 
 rct = rct + 1
 resultsdf[rct,] = c( "PING-Inf",
@@ -113,12 +113,11 @@ as_hux( resultsdf ) %>%
       set_background_color(3, 6, "pink")%>%
       set_background_color(4, 6, "pink")%>%
       set_background_color(6:7, 6, "cadetblue1")%>%
-      set_background_color(4, 3, "antiquewhite")%>%
       set_background_color(2, 2, "antiquewhite")%>%
       set_background_color(3,3, "antiquewhite")%>%
       set_background_color(4, 7, "antiquewhite")%>%
 #      set_background_color(4, 3, "antiquewhite")%>%
-      set_background_color(5, 4, "antiquewhite")
+      set_background_color(5:7, 3, "antiquewhite")
 
 
 ````
