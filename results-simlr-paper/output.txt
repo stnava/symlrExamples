@@ -1,0 +1,624 @@
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 267704 14.3     648428 34.7   454427 24.3
+Vcells 451716  3.5    8388608 64.0  1781740 13.6
+
+
+processing file: simlr_TCGA_survival.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |........                                                              |  11%
+  ordinary text without R code
+
+  |                                                                              |................                                                      |  22%
+label: init (with options) 
+List of 3
+ $ echo   : logi FALSE
+ $ message: logi FALSE
+ $ warning: logi FALSE
+
+Loading required package: ANTsRCore
+
+Attaching package: 'ANTsRCore'
+
+The following objects are masked from 'package:stats':
+
+    sd, var
+
+The following objects are masked from 'package:base':
+
+    all, any, apply, max, min, prod, range, sum
+
+Loading required package: prodlim
+  |                                                                              |.......................                                               |  33%
+   inline R code fragments
+
+  |                                                                              |...............................                                       |  44%
+label: unnamed-chunk-1
+  |                                                                              |.......................................                               |  56%
+  ordinary text without R code
+
+  |                                                                              |...............................................                       |  67%
+label: unnamed-chunk-2
+  |                                                                              |......................................................                |  78%
+  ordinary text without R code
+
+  |                                                                              |..............................................................        |  89%
+label: histout
+  |                                                                              |......................................................................| 100%
+   inline R code fragments
+
+
+output file: simlr_TCGA_survival.knit.md
+
+/usr/bin/pandoc +RTS -K512m -RTS simlr_TCGA_survival.utf8.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output /results/simlr_TCGA_survival_CCA_mix_SVD.html --email-obfuscation none --self-contained --standalone --section-divs --template /usr/local/lib/R/site-library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable 'theme:bootstrap' --include-in-header /tmp/RtmpC22uCl/rmarkdown-str6650d0508.html --mathjax --variable 'mathjax-url:https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' 
+
+Output created: /results/simlr_TCGA_survival_CCA_mix_SVD.html
+Warning messages:
+1: package 'ANTsR' was built under R version 3.6.3 
+2: package 'ANTsRCore' was built under R version 3.6.3 
+          used  (Mb) gc trigger  (Mb)  max used  (Mb)
+Ncells 2456870 131.3    6525122 348.5   8043668 429.6
+Vcells 8443520  64.5   89570394 683.4 111962992 854.3
+
+
+processing file: simlr_TCGA_survival.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |........                                                              |  11%
+  ordinary text without R code
+
+  |                                                                              |................                                                      |  22%
+label: init (with options) 
+List of 3
+ $ echo   : logi FALSE
+ $ message: logi FALSE
+ $ warning: logi FALSE
+
+  |                                                                              |.......................                                               |  33%
+   inline R code fragments
+
+  |                                                                              |...............................                                       |  44%
+label: unnamed-chunk-1
+  |                                                                              |.......................................                               |  56%
+  ordinary text without R code
+
+  |                                                                              |...............................................                       |  67%
+label: unnamed-chunk-2
+  |                                                                              |......................................................                |  78%
+  ordinary text without R code
+
+  |                                                                              |..............................................................        |  89%
+label: histout
+  |                                                                              |......................................................................| 100%
+   inline R code fragments
+
+
+output file: simlr_TCGA_survival.knit.md
+
+/usr/bin/pandoc +RTS -K512m -RTS simlr_TCGA_survival.utf8.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output /results/simlr_TCGA_survival_CCA_mix_ICA.html --email-obfuscation none --self-contained --standalone --section-divs --template /usr/local/lib/R/site-library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable 'theme:bootstrap' --include-in-header /tmp/RtmpC22uCl/rmarkdown-str62c5990de.html --mathjax --variable 'mathjax-url:https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' 
+
+Output created: /results/simlr_TCGA_survival_CCA_mix_ICA.html
+          used  (Mb) gc trigger  (Mb)  max used  (Mb)
+Ncells 2457516 131.3    8233200 439.8  10291500 549.7
+Vcells 8445530  64.5   87677800 669.0 111962992 854.3
+
+
+processing file: simlr_TCGA_survival.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |........                                                              |  11%
+  ordinary text without R code
+
+  |                                                                              |................                                                      |  22%
+label: init (with options) 
+List of 3
+ $ echo   : logi FALSE
+ $ message: logi FALSE
+ $ warning: logi FALSE
+
+  |                                                                              |.......................                                               |  33%
+   inline R code fragments
+
+  |                                                                              |...............................                                       |  44%
+label: unnamed-chunk-1
+  |                                                                              |.......................................                               |  56%
+  ordinary text without R code
+
+  |                                                                              |...............................................                       |  67%
+label: unnamed-chunk-2
+  |                                                                              |......................................................                |  78%
+  ordinary text without R code
+
+  |                                                                              |..............................................................        |  89%
+label: histout
+  |                                                                              |......................................................................| 100%
+   inline R code fragments
+
+
+output file: simlr_TCGA_survival.knit.md
+
+/usr/bin/pandoc +RTS -K512m -RTS simlr_TCGA_survival.utf8.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output /results/simlr_TCGA_survival_Reg_mix_SVD.html --email-obfuscation none --self-contained --standalone --section-divs --template /usr/local/lib/R/site-library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable 'theme:bootstrap' --include-in-header /tmp/RtmpC22uCl/rmarkdown-str6212bb314.html --mathjax --variable 'mathjax-url:https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' 
+
+Output created: /results/simlr_TCGA_survival_Reg_mix_SVD.html
+          used  (Mb) gc trigger  (Mb)  max used  (Mb)
+Ncells 2457516 131.3    7271202 388.4  13908780 742.9
+Vcells 8445543  64.5   84831375 647.3 111962992 854.3
+
+
+processing file: simlr_TCGA_survival.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |........                                                              |  11%
+  ordinary text without R code
+
+  |                                                                              |................                                                      |  22%
+label: init (with options) 
+List of 3
+ $ echo   : logi FALSE
+ $ message: logi FALSE
+ $ warning: logi FALSE
+
+  |                                                                              |.......................                                               |  33%
+   inline R code fragments
+
+  |                                                                              |...............................                                       |  44%
+label: unnamed-chunk-1
+  |                                                                              |.......................................                               |  56%
+  ordinary text without R code
+
+  |                                                                              |...............................................                       |  67%
+label: unnamed-chunk-2
+  |                                                                              |......................................................                |  78%
+  ordinary text without R code
+
+  |                                                                              |..............................................................        |  89%
+label: histout
+  |                                                                              |......................................................................| 100%
+   inline R code fragments
+
+
+output file: simlr_TCGA_survival.knit.md
+
+/usr/bin/pandoc +RTS -K512m -RTS simlr_TCGA_survival.utf8.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output /results/simlr_TCGA_survival_Reg_mix_ICA.html --email-obfuscation none --self-contained --standalone --section-divs --template /usr/local/lib/R/site-library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable 'theme:bootstrap' --include-in-header /tmp/RtmpC22uCl/rmarkdown-str62b50c19d.html --mathjax --variable 'mathjax-url:https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' 
+
+Output created: /results/simlr_TCGA_survival_Reg_mix_ICA.html
+
+
+processing file: simulationStudyRGCCA.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |...                                                                   |   4%
+   inline R code fragments
+
+  |                                                                              |......                                                                |   8%
+label: unnamed-chunk-1 (with options) 
+List of 2
+ $ fig.height: num 3
+ $ fig.width : num 9
+
+  |                                                                              |.........                                                             |  12%
+  ordinary text without R code
+
+  |                                                                              |............                                                          |  17%
+label: unnamed-chunk-2
+  |                                                                              |...............                                                       |  21%
+  ordinary text without R code
+
+  |                                                                              |..................                                                    |  25%
+label: unnamed-chunk-3
+  |                                                                              |....................                                                  |  29%
+  ordinary text without R code
+
+  |                                                                              |.......................                                               |  33%
+label: unnamed-chunk-4
+  |                                                                              |..........................                                            |  38%
+  ordinary text without R code
+
+  |                                                                              |.............................                                         |  42%
+label: unnamed-chunk-5
+  |                                                                              |................................                                      |  46%
+  ordinary text without R code
+
+  |                                                                              |...................................                                   |  50%
+label: unnamed-chunk-6
+  |                                                                              |......................................                                |  54%
+  ordinary text without R code
+
+  |                                                                              |.........................................                             |  58%
+label: unnamed-chunk-7
+  |                                                                              |............................................                          |  62%
+  ordinary text without R code
+
+  |                                                                              |...............................................                       |  67%
+label: unnamed-chunk-8
+  |                                                                              |..................................................                    |  71%
+  ordinary text without R code
+
+  |                                                                              |....................................................                  |  75%
+label: unnamed-chunk-9
+  |                                                                              |.......................................................               |  79%
+  ordinary text without R code
+
+  |                                                                              |..........................................................            |  83%
+label: unnamed-chunk-10
+  |                                                                              |.............................................................         |  88%
+  ordinary text without R code
+
+  |                                                                              |................................................................      |  92%
+label: unnamed-chunk-11 (with options) 
+List of 1
+ $ eval: logi TRUE
+
+  |                                                                              |...................................................................   |  96%
+  ordinary text without R code
+
+  |                                                                              |......................................................................| 100%
+label: unnamed-chunk-12 (with options) 
+List of 1
+ $ eval: logi FALSE
+
+
+output file: simulationStudyRGCCA.knit.md
+
+/usr/bin/pandoc +RTS -K512m -RTS simulationStudyRGCCA.utf8.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output /results/simulationStudyRGCCA_CCA_mix_ICA.html --email-obfuscation none --self-contained --standalone --section-divs --template /usr/local/lib/R/site-library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable 'theme:bootstrap' --include-in-header /tmp/RtmpC22uCl/rmarkdown-str6780d1ac.html --mathjax --variable 'mathjax-url:https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' 
+
+Output created: /results/simulationStudyRGCCA_CCA_mix_ICA.html
+
+
+processing file: simulationStudyRGCCA.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |...                                                                   |   4%
+   inline R code fragments
+
+  |                                                                              |......                                                                |   8%
+label: unnamed-chunk-1 (with options) 
+List of 2
+ $ fig.height: num 3
+ $ fig.width : num 9
+
+  |                                                                              |.........                                                             |  12%
+  ordinary text without R code
+
+  |                                                                              |............                                                          |  17%
+label: unnamed-chunk-2
+  |                                                                              |...............                                                       |  21%
+  ordinary text without R code
+
+  |                                                                              |..................                                                    |  25%
+label: unnamed-chunk-3
+  |                                                                              |....................                                                  |  29%
+  ordinary text without R code
+
+  |                                                                              |.......................                                               |  33%
+label: unnamed-chunk-4
+  |                                                                              |..........................                                            |  38%
+  ordinary text without R code
+
+  |                                                                              |.............................                                         |  42%
+label: unnamed-chunk-5
+  |                                                                              |................................                                      |  46%
+  ordinary text without R code
+
+  |                                                                              |...................................                                   |  50%
+label: unnamed-chunk-6
+  |                                                                              |......................................                                |  54%
+  ordinary text without R code
+
+  |                                                                              |.........................................                             |  58%
+label: unnamed-chunk-7
+  |                                                                              |............................................                          |  62%
+  ordinary text without R code
+
+  |                                                                              |...............................................                       |  67%
+label: unnamed-chunk-8
+  |                                                                              |..................................................                    |  71%
+  ordinary text without R code
+
+  |                                                                              |....................................................                  |  75%
+label: unnamed-chunk-9
+  |                                                                              |.......................................................               |  79%
+  ordinary text without R code
+
+  |                                                                              |..........................................................            |  83%
+label: unnamed-chunk-10
+  |                                                                              |.............................................................         |  88%
+  ordinary text without R code
+
+  |                                                                              |................................................................      |  92%
+label: unnamed-chunk-11 (with options) 
+List of 1
+ $ eval: logi TRUE
+
+  |                                                                              |...................................................................   |  96%
+  ordinary text without R code
+
+  |                                                                              |......................................................................| 100%
+label: unnamed-chunk-12 (with options) 
+List of 1
+ $ eval: logi FALSE
+
+
+output file: simulationStudyRGCCA.knit.md
+
+/usr/bin/pandoc +RTS -K512m -RTS simulationStudyRGCCA.utf8.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output /results/simulationStudyRGCCA_CCA_mix_SVD.html --email-obfuscation none --self-contained --standalone --section-divs --template /usr/local/lib/R/site-library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable 'theme:bootstrap' --include-in-header /tmp/RtmpC22uCl/rmarkdown-str6783a06d9.html --mathjax --variable 'mathjax-url:https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' 
+
+Output created: /results/simulationStudyRGCCA_CCA_mix_SVD.html
+
+
+processing file: simulationStudyRGCCA.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |...                                                                   |   4%
+   inline R code fragments
+
+  |                                                                              |......                                                                |   8%
+label: unnamed-chunk-1 (with options) 
+List of 2
+ $ fig.height: num 3
+ $ fig.width : num 9
+
+  |                                                                              |.........                                                             |  12%
+  ordinary text without R code
+
+  |                                                                              |............                                                          |  17%
+label: unnamed-chunk-2
+  |                                                                              |...............                                                       |  21%
+  ordinary text without R code
+
+  |                                                                              |..................                                                    |  25%
+label: unnamed-chunk-3
+  |                                                                              |....................                                                  |  29%
+  ordinary text without R code
+
+  |                                                                              |.......................                                               |  33%
+label: unnamed-chunk-4
+  |                                                                              |..........................                                            |  38%
+  ordinary text without R code
+
+  |                                                                              |.............................                                         |  42%
+label: unnamed-chunk-5
+  |                                                                              |................................                                      |  46%
+  ordinary text without R code
+
+  |                                                                              |...................................                                   |  50%
+label: unnamed-chunk-6
+  |                                                                              |......................................                                |  54%
+  ordinary text without R code
+
+  |                                                                              |.........................................                             |  58%
+label: unnamed-chunk-7
+  |                                                                              |............................................                          |  62%
+  ordinary text without R code
+
+  |                                                                              |...............................................                       |  67%
+label: unnamed-chunk-8
+  |                                                                              |..................................................                    |  71%
+  ordinary text without R code
+
+  |                                                                              |....................................................                  |  75%
+label: unnamed-chunk-9
+  |                                                                              |.......................................................               |  79%
+  ordinary text without R code
+
+  |                                                                              |..........................................................            |  83%
+label: unnamed-chunk-10
+  |                                                                              |.............................................................         |  88%
+  ordinary text without R code
+
+  |                                                                              |................................................................      |  92%
+label: unnamed-chunk-11 (with options) 
+List of 1
+ $ eval: logi TRUE
+
+  |                                                                              |...................................................................   |  96%
+  ordinary text without R code
+
+  |                                                                              |......................................................................| 100%
+label: unnamed-chunk-12 (with options) 
+List of 1
+ $ eval: logi FALSE
+
+
+output file: simulationStudyRGCCA.knit.md
+
+/usr/bin/pandoc +RTS -K512m -RTS simulationStudyRGCCA.utf8.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output /results/simulationStudyRGCCA_Reg_mix_ICA.html --email-obfuscation none --self-contained --standalone --section-divs --template /usr/local/lib/R/site-library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable 'theme:bootstrap' --include-in-header /tmp/RtmpC22uCl/rmarkdown-str65d60deda.html --mathjax --variable 'mathjax-url:https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' 
+
+Output created: /results/simulationStudyRGCCA_Reg_mix_ICA.html
+
+
+processing file: simulationStudyRGCCA.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |...                                                                   |   4%
+   inline R code fragments
+
+  |                                                                              |......                                                                |   8%
+label: unnamed-chunk-1 (with options) 
+List of 2
+ $ fig.height: num 3
+ $ fig.width : num 9
+
+  |                                                                              |.........                                                             |  12%
+  ordinary text without R code
+
+  |                                                                              |............                                                          |  17%
+label: unnamed-chunk-2
+  |                                                                              |...............                                                       |  21%
+  ordinary text without R code
+
+  |                                                                              |..................                                                    |  25%
+label: unnamed-chunk-3
+  |                                                                              |....................                                                  |  29%
+  ordinary text without R code
+
+  |                                                                              |.......................                                               |  33%
+label: unnamed-chunk-4
+  |                                                                              |..........................                                            |  38%
+  ordinary text without R code
+
+  |                                                                              |.............................                                         |  42%
+label: unnamed-chunk-5
+  |                                                                              |................................                                      |  46%
+  ordinary text without R code
+
+  |                                                                              |...................................                                   |  50%
+label: unnamed-chunk-6
+  |                                                                              |......................................                                |  54%
+  ordinary text without R code
+
+  |                                                                              |.........................................                             |  58%
+label: unnamed-chunk-7
+  |                                                                              |............................................                          |  62%
+  ordinary text without R code
+
+  |                                                                              |...............................................                       |  67%
+label: unnamed-chunk-8
+  |                                                                              |..................................................                    |  71%
+  ordinary text without R code
+
+  |                                                                              |....................................................                  |  75%
+label: unnamed-chunk-9
+  |                                                                              |.......................................................               |  79%
+  ordinary text without R code
+
+  |                                                                              |..........................................................            |  83%
+label: unnamed-chunk-10
+  |                                                                              |.............................................................         |  88%
+  ordinary text without R code
+
+  |                                                                              |................................................................      |  92%
+label: unnamed-chunk-11 (with options) 
+List of 1
+ $ eval: logi TRUE
+
+  |                                                                              |...................................................................   |  96%
+  ordinary text without R code
+
+  |                                                                              |......................................................................| 100%
+label: unnamed-chunk-12 (with options) 
+List of 1
+ $ eval: logi FALSE
+
+
+output file: simulationStudyRGCCA.knit.md
+
+/usr/bin/pandoc +RTS -K512m -RTS simulationStudyRGCCA.utf8.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output /results/simulationStudyRGCCA_Reg_mix_SVD.html --email-obfuscation none --self-contained --standalone --section-divs --template /usr/local/lib/R/site-library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable 'theme:bootstrap' --include-in-header /tmp/RtmpC22uCl/rmarkdown-str67e29559.html --mathjax --variable 'mathjax-url:https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' 
+
+Output created: /results/simulationStudyRGCCA_Reg_mix_SVD.html
+          used  (Mb) gc trigger  (Mb)  max used  (Mb)
+Ncells 2507554 134.0    7210044 385.1  13908780 742.9
+Vcells 8553072  65.3   27548388 210.2 111962992 854.3
+
+
+processing file: simlr_PTBP_supervised_learning.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |....                                                                  |   5%
+   inline R code fragments
+
+  |                                                                              |.......                                                               |  11%
+label: setup (with options) 
+List of 4
+ $ eval   : logi TRUE
+ $ results: chr "hide"
+ $ warning: logi FALSE
+ $ echo   : logi FALSE
+
+  |                                                                              |...........                                                           |  16%
+  ordinary text without R code
+
+  |                                                                              |...............                                                       |  21%
+label: dataio
+  |                                                                              |..................                                                    |  26%
+  ordinary text without R code
+
+  |                                                                              |......................                                                |  32%
+label: genericvox
+  |                                                                              |..........................                                            |  37%
+  ordinary text without R code
+
+  |                                                                              |.............................                                         |  42%
+label: thkfun
+  |                                                                              |.................................                                     |  47%
+  ordinary text without R code
+
+  |                                                                              |.....................................                                 |  53%
+label: fafun
+  |                                                                              |.........................................                             |  58%
+  ordinary text without R code
+
+  |                                                                              |............................................                          |  63%
+label: cbffun
+  |                                                                              |................................................                      |  68%
+  ordinary text without R code
+
+  |                                                                              |....................................................                  |  74%
+label: estimateRank
+  |                                                                              |.......................................................               |  79%
+  ordinary text without R code
+
+  |                                                                              |...........................................................           |  84%
+label: simlr
+  |                                                                              |...............................................................       |  89%
+  ordinary text without R code
+
+  |                                                                              |..................................................................    |  95%
+label: finalResultsNumbers
+  |                                                                              |......................................................................| 100%
+  ordinary text without R code
+
+
+output file: simlr_PTBP_supervised_learning.knit.md
+
+/usr/bin/pandoc +RTS -K512m -RTS simlr_PTBP_supervised_learning.utf8.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output /results/simlr_PTBP_supervised_ICA.html --email-obfuscation none --self-contained --standalone --section-divs --template /usr/local/lib/R/site-library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable 'theme:bootstrap' --include-in-header /tmp/RtmpC22uCl/rmarkdown-str61f7e8cb7.html --mathjax --variable 'mathjax-url:https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' 
+
+Output created: /results/simlr_PTBP_supervised_ICA.html
+          used  (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells 2549593 136.2    7210044   385.1   13908780   742.9
+Vcells 8620383  65.8 2786652096 21260.5 3483315120 26575.6
+
+
+processing file: simlr_PTBP_supervised_learning.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |....                                                                  |   5%
+   inline R code fragments
+
+  |                                                                              |.......                                                               |  11%
+label: setup (with options) 
+List of 4
+ $ eval   : logi TRUE
+ $ results: chr "hide"
+ $ warning: logi FALSE
+ $ echo   : logi FALSE
+
+  |                                                                              |...........                                                           |  16%
+  ordinary text without R code
+
+  |                                                                              |...............                                                       |  21%
+label: dataio
+  |                                                                              |..................                                                    |  26%
+  ordinary text without R code
+
+  |                                                                              |......................                                                |  32%
+label: genericvox
+  |                                                                              |..........................                                            |  37%
+  ordinary text without R code
+
+  |                                                                              |.............................                                         |  42%
+label: thkfun
+  |                                                                              |.................................                                     |  47%
+  ordinary text without R code
+
+  |                                                                              |.....................................                                 |  53%
+label: fafun
+  |                                                                              |.........................................                             |  58%
+  ordinary text without R code
+
+  |                                                                              |............................................                          |  63%
+label: cbffun
+  |                                                                              |................................................                      |  68%
+  ordinary text without R code
+
+  |                                                                              |....................................................                  |  74%
+label: estimateRank
+  |                                                                              |.......................................................               |  79%
+  ordinary text without R code
+
+  |                                                                              |...........................................................           |  84%
+label: simlr
+  |                                                                              |...............................................................       |  89%
+  ordinary text without R code
+
+  |                                                                              |..................................................................    |  95%
+label: finalResultsNumbers
+  |                                                                              |......................................................................| 100%
+  ordinary text without R code
+
+
+output file: simlr_PTBP_supervised_learning.knit.md
+
+/usr/bin/pandoc +RTS -K512m -RTS simlr_PTBP_supervised_learning.utf8.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output /results/simlr_PTBP_supervised_SVD.html --email-obfuscation none --self-contained --standalone --section-divs --template /usr/local/lib/R/site-library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable 'theme:bootstrap' --include-in-header /tmp/RtmpC22uCl/rmarkdown-str665718e6.html --mathjax --variable 'mathjax-url:https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' 
+
+Output created: /results/simlr_PTBP_supervised_SVD.html

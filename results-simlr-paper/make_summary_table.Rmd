@@ -1,0 +1,124 @@
+---
+title: 'Comparison of SiMLR and RGCCA: summary of all experiments'
+author: "Brian B. Avants et al."
+date: "`r Sys.Date()`"
+output: pdf_document
+urlcolor: blue
+---
+
+```{r,echo=FALSE}
+options(digits=2)
+library( PAutilities )
+simCCAMIXICA=read.csv("simulation_energycca_mixica.csv")
+simCCAMIXSVD=read.csv("simulation_energycca_mixsvd.csv")
+simREGMIXICA=read.csv("simulation_energyregression_mixica.csv")
+simREGMIXSVD=read.csv("simulation_energyregression_mixsvd.csv")
+
+mixomics = read.csv("simlr_TCGA_survival_Reg_mix_ICA.csv")
+
+ptbpICA = read.csv( "supervised_ptbp_summary_results_ica.csv" )
+ptbpSVD = read.csv( "supervised_ptbp_summary_results_svd.csv" )
+
+
+resultsdf = data.frame(
+  study=NA, RGCCA=NA, SGCCA=NA, SimCCAICA=NA, SimCCASVD=NA, SimRegICA=NA,
+  SimRegSVD=NA, metric=NA )
+rct = 1
+resultsdf[rct,] = c( "Recon-Signal",
+  mean_sd( simCCAMIXICA$rgccaRSQ )[3],
+  mean_sd( simCCAMIXICA$sgccaRSQ )[3],
+  mean_sd( simCCAMIXICA$symRSQ )[3],
+  mean_sd( simCCAMIXSVD$symRSQ )[3],
+  mean_sd( simREGMIXICA$symRSQ )[3],
+  mean_sd( simREGMIXSVD$symRSQ )[3],
+  "R-squared" )
+
+if ( TRUE ) {
+rct=rct+1
+resultsdf[rct,] = c( "Noise-Sens.",
+  substr( mean_sd( summary( lm(  rgccaRSQ ~ corrupt1+corrupt2+corrupt3,   data=simCCAMIXSVD ))$r.squared )[3], 0, 4),
+  substr( mean_sd( summary( lm(  sgccaRSQ ~ corrupt1+corrupt2+corrupt3,   data=simCCAMIXSVD ))$r.squared )[3], 0, 4),
+  substr( mean_sd( summary( lm(  symRSQ ~ corrupt1+corrupt2+corrupt3,   data=simCCAMIXICA ))$r.squared )[3], 0, 4),
+  substr( mean_sd( summary( lm(  symRSQ ~ corrupt1+corrupt2+corrupt3,   data=simCCAMIXSVD ))$r.squared )[3], 0, 4),
+  substr( mean_sd( summary( lm(  symRSQ ~ corrupt1+corrupt2+corrupt3,   data=simREGMIXICA ))$r.squared )[3], 0, 4),
+  substr( mean_sd( summary( lm(  symRSQ ~ corrupt1+corrupt2+corrupt3,   data=simREGMIXSVD ))$r.squared )[3], 0, 3),
+  "R-squared" )
+}
+
+rct = rct + 1
+resultsdf[rct,] = c( "Mixomics",
+  " N/A ",
+  "0.62 +/ 0.01",
+  "0.64 +/ 0.03",
+  "0.65 +/ 0.03",
+  "0.65 +/ 0.04",
+  "0.61 +/ 0.03",
+  "Concordance" )
+
+rct = rct + 1
+resultsdf[rct,] = c( "brainAge",
+  " N/A ",
+  mean_sd( abs( ptbpICA$AgeAtScan - ptbpICA$RGCCAPredAgeAtScan ) )[3],
+  mean_sd( abs( ptbpICA$AgeAtScan - ptbpICA$SiMLRCCAPredAgeAtScan ) )[3],
+  mean_sd( abs( ptbpICA$AgeAtScan - ptbpSVD$SiMLRCCAPredAgeAtScan ) )[3],
+  mean_sd( abs( ptbpICA$AgeAtScan - ptbpICA$SiMLRRegPredAgeAtScan ) )[3],
+  mean_sd( abs( ptbpICA$AgeAtScan - ptbpSVD$SiMLRRegPredAgeAtScan ) )[3],
+  "MAE" )
+
+rct = rct + 1
+resultsdf[rct,] = c( "PING-SNPs",
+    " N/A ",
+    " N.S.",
+    " N/A ",
+    " 3 components ",
+    " 6 components ",
+    " N/A ",
+    "Inferential" )
+
+rct = rct + 1
+resultsdf[rct,] = c( "PING-Inf",
+    " N/A ",
+    " N.S.",
+    " N/A ",
+    " 3 components ",
+    " 6 components ",
+    " N/A ",
+    "Inferential" )
+
+
+mycap='Summary of RGCCA-SGCCA-SiMLR comparison results. RGCCA = regularized generalized canonical correlation analysis; SGCCA = sparse generalized canonical correlation analysis; Sim = similarity-driven multivariate linear reconstruction (SiMLR); Reg = regression; CCA = absolute canonical covariance; ICA = ICA mixing method; SVD = SVD mixing method.  Best results are highlighted in cadet blue; worst in antiquewhite. SiMLR with the absolute canonical covariance similarity measurement and SVD (SimCCASVD)as a mixing method performs best overall.  SiMLR with the regression energy and ICA mixing method (SimRegICA) outperforms SGCCA most consistently across sparseness levels, provides closely competitive performance overall, and is highlighted in pink.'
+
+write.csv(resultsdf,"summary_table.csv",row.names=F)
+
+```
+
+
+```{r,results='asis',echo=FALSE,eval=FALSE}
+library( xtable )
+tli.table <- xtable( resultsdf, caption=mycap )
+print(tli.table, include.rownames = FALSE)
+```
+
+
+```{r,results='asis',echo=FALSE}
+resultsdf = read.csv("summary_table.csv")
+library(huxtable)
+library(magrittr)
+as_hux( resultsdf ) %>%
+  set_bold(1, everywhere) %>%
+  set_bottom_border(1, everywhere) %>%
+  set_caption( mycap ) %>%
+      set_background_color(evens, everywhere, "grey95") %>%
+      set_background_color(2:5, 5, "cadetblue1") %>%
+      set_background_color(3, 6, "pink")%>%
+      set_background_color(4, 6, "pink")%>%
+      set_background_color(6:7, 6, "cadetblue1")%>%
+      set_background_color(4, 3, "antiquewhite")%>%
+      set_background_color(2, 2, "antiquewhite")%>%
+      set_background_color(3,3, "antiquewhite")%>%
+      set_background_color(4, 7, "antiquewhite")%>%
+#      set_background_color(4, 3, "antiquewhite")%>%
+      set_background_color(5, 4, "antiquewhite")
+
+
+````

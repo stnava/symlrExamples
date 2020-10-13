@@ -6,7 +6,7 @@ urlcolor: blue
 
 
 ```{r init,echo=FALSE,message=FALSE,warning=FALSE}
-set.seed( 98 )
+set.seed( 982018 )
 library( ANTsR )
 library( RGCCA )
 library( measures )
@@ -311,8 +311,8 @@ for ( sp in sparSearch ) {
     print( t.test( myresults[losel,"simCox"], myresults[losel,"rgCox"], paired=T ) )
     }
   print( colMeans( myresults[losel,] , na.rm=T ) )
-  plot( myresults[losel,"simCox"], myresults[losel,"simCox"] - myresults[losel,"rgCox"], 
-        main=paste( 'SiMLR Concordance vs RGCCA Concordance @ sparseness:', sp ), 
+  plot( myresults[losel,"simCox"], myresults[losel,"simCox"] - myresults[losel,"rgCox"],
+        main=paste( 'SiMLR Concordance vs RGCCA Concordance @ sparseness:', sp ),
         xlab='SiMLR Concordance',
         ylab='SiMLR Concordance minus RGCCA Concordance' )
   referenceLine = sort(runif(25,min(myresults[losel,"simCox"]),max(myresults[losel,"simCox"])))
@@ -327,5 +327,25 @@ Summarize results.
 knitr::kable( myresults )
 ```
 
-Parameters: mixAlg `r mixAlg`, nComponents `r nComponents`.
 
+Better histogram.
+
+
+```{r histout, fig.height=18,fig.width=6}
+library(rtemis)
+rtlayout(3, 1, byrow = TRUE, autolabel = FALSE)
+temp=myresults[myresults$sp==0.25,1:2]
+colnames(temp) = c('SiMLR','SGCCA')
+mplot3.x( na.omit(temp), main='Survival Prediction in Glioblastoma, sparseness 0.25',  xlab='Concordance' )
+library(rtemis)
+temp=myresults[myresults$sp==0.5,1:2]
+colnames(temp) = c('SiMLR','SGCCA')
+mplot3.x( na.omit(temp), main='Survival Prediction in Glioblastoma, sparseness 0.5',  xlab='Concordance' )
+library(rtemis)
+temp=myresults[myresults$sp==0.75,1:2]
+colnames(temp) = c('SiMLR','SGCCA')
+mplot3.x( na.omit(temp), main='Survival Prediction in Glioblastoma, sparseness 0.75',  xlab='Concordance' )
+```
+
+
+Parameters: mixAlg `r mixAlg`, nComponents `r nComponents`.

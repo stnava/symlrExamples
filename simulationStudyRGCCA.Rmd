@@ -42,12 +42,12 @@ with or better than RGCCA and its sparse counterpart, SGCCA.
 
 - The reduced variance in performance in likely due in part to both graph-based regularization and the primal formulation i.e. that we directly optimize the smoothed and sparsified feature vectors instead of using the dual formulation.
 
-```{r}
-set.seed( 88 )
+```{r,fig.height=3,fig.width=9}
+set.seed( 999 )
 library( ANTsR )
 library( RGCCA )
 library( smoother )
-doA = FALSE
+doA = TRUE
 smoothRows <- function( x ) {
   window = sample( 25:150, 1 )
   nr = nrow( x )
@@ -61,20 +61,13 @@ smoothRows <- function( x ) {
 }
 
 doCorruption = TRUE
-nEmbeddings = nk = 18 # for latent signal
 if ( ! exists( "energyType" ) ) energyType = 'cca'
-if ( ! exists( "smaller" ) ) smaller = 0.67
-nsub = round( 400 * smaller ) # number of subjects
-npix = c( nsub*4, nsub*2, nsub * 8 ) # size of matrices are wildly different
 nComp = 4   # n components
 if ( ! exists( "nsims" ) ) nsims = 120
 nits = 100    # n-iterations
 nz = 0       # simulated signal parameter - not sensitive to this choice
 nzs = 1.5    # simulated signal parameter - not sensitive to this choice
 nzs2 = 1     # simulated signal parameter - not sensitive to this choice
-ntrain = 0.8 * round( nsub )
-train = sample( c( rep(T, ntrain ) ,rep(F, nsub - ntrain )) ) # train and test split
-test = !train
 nna = rep( NA, nsims )
 # this data frame will hold the results and allow us to answer questions about how noise impacts the outcome
 simdatafrm = data.frame(
@@ -84,19 +77,27 @@ simdatafrm = data.frame(
     prmRSQ = nna,
     corrupt1 = nna,
     corrupt2 = nna,
-    corrupt3 = nna
+    corrupt3 = nna,
+    nTrueEmbeddings = nna,
+    nForSim = nna
     )
 ################################################################################
 for ( sim in c(1:nsims)  ) {
-  set.seed( sim )
+  smaller = rnorm( 1, 0.8, 0.2 )
+  nsub = round( 400 * smaller ) # number of subjects
+  npix = c( nsub*4, nsub*2, nsub * 8 ) # size of matrices are wildly different
+  ntrain = 0.8 * round( nsub )
+  train = sample( c( rep(T, ntrain ) ,rep(F, nsub - ntrain )) ) # train and test split
+  test = !train
+  nEmbeddings = nk = sample( 5:25, 1 )# for latent signal
     # the outcome's first column is the latent signal that we are seeking
+    mixmats  = diag( nk )
     outcome = scale( matrix(runif( nsub * nk, nz, nzs2 ),ncol=nk) )
     # the 3 matrices below represent modality specific distributions
     view1tx = scale(matrix( rnorm( npix[1]  * nk, nz, nzs ), nrow=nk ))
     view2tx = scale(matrix( rnorm( npix[2]  * nk, nz, nzs*1.5 ), nrow=nk ))
     view3tx = scale(matrix( rnorm( npix[3]  * nk, nz, nzs*0.8 ), nrow=nk ))
     # below we mix the independent basis matrices with the true signal
-    mixmats  = diag( nk )
     outcomex = outcome
     # throw some difference in here - so really just the first column is the latent signal
     reo=2:nk
@@ -104,17 +105,17 @@ for ( sim in c(1:nsims)  ) {
     # here, we resample the diagonal matrix to provide some variability about
     # where the signals appear across different modalities
     # we also smooth to provide some modality specific covariation
-    smoosig = abs( rnorm( 3, 5, 1.5 ) ) # draw from a distribution of smoothing parameters
-    # smoosig = rep( 1.0, 3 ) # if you want to limit smoothing
-    if ( doA ) mixmat = as.matrix( smoothImage( as.antsImage( mixmats[sample(1:nrow(mixmats)),] %*% view1tx) , smoosig[3] ) ) else mixmat = smoothRows( mixmats[sample(1:nrow(mixmats)),] %*% view1tx )
-    mat1 = (outcomex %*% mixmat ) # mix in the real signal --- repeat the same procedures for all 3 views of data
+    smoosig = abs( rnorm( 3, 6, 1.5 ) ) # draw from a distribution of smoothing parameters
+    if ( doA ) mixmat = as.matrix( smoothImage( as.antsImage( mixmats[(1:nrow(mixmats)),] %*% view1tx) , smoosig[3] ) ) else mixmat = smoothRows( mixmats[sample(1:nrow(mixmats)),] %*% view1tx )
+    # mix in the real signal --- repeat the same procedures for all 3 views of data
+    mat1 = (outcomex %*% mixmat )
     outcomex=outcome
     outcomex[,reo]=sample(outcomex[,reo])
-    if ( doA ) mixmat = as.matrix( smoothImage( as.antsImage( mixmats[sample(1:nrow(mixmats)),] %*% view2tx), smoosig[2] ) ) else mixmat = smoothRows( mixmats[sample(1:nrow(mixmats)),] %*% view2tx )
+    if ( doA ) mixmat = as.matrix( smoothImage( as.antsImage( mixmats[(1:nrow(mixmats)),] %*% view2tx), smoosig[2] ) ) else mixmat = smoothRows( mixmats[sample(1:nrow(mixmats)),] %*% view2tx )
     mat2 = (outcomex %*% mixmat )
     outcomex = outcome
     outcomex[,reo] = sample(outcomex[,reo])
-    if ( doA ) mixmat = as.matrix( smoothImage( as.antsImage( mixmats[sample(1:nrow(mixmats)),] %*% view3tx),  smoosig[1] ) ) else mixmat = smoothRows( mixmats[sample(1:nrow(mixmats)),] %*% view3tx )
+    if ( doA ) mixmat = as.matrix( smoothImage( as.antsImage( mixmats[(1:nrow(mixmats)),] %*% view3tx),  smoosig[1] ) ) else mixmat = smoothRows( mixmats[sample(1:nrow(mixmats)),] %*% view3tx )
     mat3 = (outcomex %*% mixmat )
     # small additive noise for each matrix
     mat1 = mat1 + matrix( rnorm( prod(dim(mat1)), 0, 0.25 ), nrow=nsub)
@@ -148,17 +149,28 @@ for ( sim in c(1:nsims)  ) {
       iterations = nits,
       mixAlg = mixingMethod  ) # allows different methods to be compared
 
-    p1 = mat1 %*% abs(result$v[[1]])
-    p2 = mat2 %*% abs(result$v[[2]])
-    p3 = mat3 %*% abs(result$v[[3]])
+    p1 = mat1 %*% abs(result$v[[1]]); colnames(p1) = paste0("PC",1:ncol(p1))
+    p2 = mat2 %*% abs(result$v[[2]]); colnames(p2) = paste0("PC",1:ncol(p1))
+    p3 = mat3 %*% abs(result$v[[3]]); colnames(p3) = paste0("PC",1:ncol(p1))
 
     nnn = 1:nComp
-    temp=data.frame( outc = outcome[,1], P1=p1[,nnn], P2=p2[,nnn], P3=p3[,nnn] )
+    temp=data.frame( outc = outcome[,1], sym1=p1[,nnn], sym2=p2[,nnn], sym3=p3[,nnn] )
     mdlsym=lm( outc~.,data=temp[train,])
+    dfPred = data.frame( true_test_outcome = temp$outc[test], predicted_outcome = predict(mdlsym,newdata=temp[test,]))
+    mdlsymPred = lm( true_test_outcome ~ predicted_outcome, data=dfPred )
     rsqsym = cor( temp$outc[test], predict(mdlsym,newdata=temp[test,]) )^2
     rsqsym
 
-derka
+    if ( sim == 1  ) {
+      library( rtemis )
+      rtlayout(1, 3, byrow = TRUE, autolabel = TRUE)
+      rtemis::mplot3.xy( temp[test,]$sym1.PC1, temp[test,]$sym2.PC1,  main='SiMLR: PC1_1 vs PC2_1', se.fit = TRUE, fit='lm'  )
+#      rtemis::mplot3.xy( temp[test,]$sym2.PC1, temp[test,]$sym3.PC1,  main='SiMLR: PC2_1 vs PC3_1', se.fit = TRUE, fit='lm'   )
+      rtemis::mplot3.xy( temp[test,]$sym3.PC1, temp[test,]$sym3.PC3,  main='SiMLR: PC3_1 vs PC3_3', se.fit = TRUE, fit='lm'   )
+#      rtemis::mplot3.xy( temp[test,]$sym2.PC3, temp[test,]$sym1.PC4,  main='SiMLR: PC2_3 vs PC1_4', se.fit = TRUE, fit='lm'   )
+      rtemis::mplot3.xy( dfPred$true_test_outcome, dfPred$predicted_outcome, main='SiMLR: Test Data', se.fit = TRUE, fit='lm' )
+
+    }
 
     # compare to permuted data
     s1 = sample( 1:nsub)
@@ -221,29 +233,12 @@ derka
     rsqsym,
     rsqrgcca,
     rsqsgcca,
-    rsqprm, ruinRate )
+    rsqprm, ruinRate, nk, nsub )
   print( paste("Simulation:",sim,"rsqsym",rsqsym, "rsqsgcca", rsqsgcca))
   print( simdatafrm[sim,] )
   cat("<<<<********>>>>\n")
   }
 
-```
-
-
-Visualize the results.
-
-```{r}
-nms=c("symRSQ","rgccaRSQ","sgccaRSQ","prmRSQ")
-h1 = hist( simdatafrm[,nms[1]])
-h2 = hist( simdatafrm[,nms[2]])
-h2b = hist( simdatafrm[,nms[3]])
-h3 = hist( simdatafrm[,nms[4]])
-myxl=c(0,1)
-plot( h1, col=rgb(0,0,1,1/4), xlim=myxl,
-      main='Signal Recovery Results: \n SiMLR (blue) vs rgcca (red) vs sgcca (yellow) \n vs SiMLR-perm (green)' ,  xlab='RSQ' )
-plot( h2, col=rgb(1,0,0,1/4), xlim=myxl, add=T )
-plot( h2b, col=rgb(1,1,0,1/4), xlim=myxl, add=T )
-plot( h3, col=rgb(0,1,0,1/4), xlim=myxl, add=T )
 ```
 
 
@@ -304,9 +299,40 @@ summary( lm( sgccaRSQ ~ corrupt1 + corrupt2 + corrupt3 , data=simdatafrm))
 ```
 
 
-Better histogram
+Look at the effect of the number of subjects for the simulation on the outcomes.
 
 ```{r}
+summary( lm( symRSQ ~ nForSim, data=simdatafrm))
+summary( lm( rgccaRSQ ~ nForSim, data=simdatafrm))
+summary( lm( sgccaRSQ ~ nForSim, data=simdatafrm))
+```
+
+
+Look at the effect of the number of bases for the simulation on the outcomes.
+
+```{r}
+summary( lm( symRSQ ~ nTrueEmbeddings, data=simdatafrm))
+summary( lm( rgccaRSQ ~ nTrueEmbeddings, data=simdatafrm))
+summary( lm( sgccaRSQ ~ nTrueEmbeddings, data=simdatafrm))
+```
+
+
+Look at results via histogram
+
+```{r,eval=TRUE}
+library( rtemis )
+myMeth = paste0("SiMLR-mix-",mixingMethod,'-E-',energyType)
+# Build dataset with different distributions
+mdata <- data.frame(
+  method = rep( c(myMeth, "RGCCA", "SGCCA" ),  each = nsims ),
+  value = c( simdatafrm[,1], simdatafrm[,2], simdatafrm[,3] )
+)
+mplot3.x( split( mdata$value, mdata$method )  )
+ofn = paste0( '/results/simulation_energy', energyType, "_mix", mixingMethod, '.csv' )
+if ( dir.exists( "/results/" ) ) write.csv( simdatafrm, ofn )
+```
+
+```{r,eval=FALSE}
 library(viridis)
 library(ggplot2)
 library(dplyr)
