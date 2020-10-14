@@ -45,6 +45,18 @@ resultsdf[rct,] = c( "Noise-Sens.",
   "R-squared" )
 }
 
+if ( FALSE ) {
+rct=rct+1
+resultsdf[rct,] = c( "n-Sens.",
+  substr( mean_sd( summary( lm(  rgccaRSQ ~ nForSim,   data=simCCAMIXSVD ))$r.squared )[3], 0, 4),
+  substr( mean_sd( summary( lm(  sgccaRSQ ~ nForSim,   data=simCCAMIXSVD ))$r.squared )[3], 0, 4),
+  substr( mean_sd( summary( lm(  symRSQ ~ nForSim,   data=simCCAMIXICA ))$r.squared )[3], 0, 4),
+  substr( mean_sd( summary( lm(  symRSQ ~ nForSim,   data=simCCAMIXSVD ))$r.squared )[3], 0, 4),
+  substr( mean_sd( summary( lm(  symRSQ ~ nForSim,   data=simREGMIXICA ))$r.squared )[3], 0, 4),
+  substr( mean_sd( summary( lm(  symRSQ ~ nForSim,   data=simREGMIXSVD ))$r.squared )[3], 0, 3),
+  "R-squared" )
+}
+
 rct = rct + 1
 resultsdf[rct,] = c( "Mixomics",
   " N/A ",
@@ -104,7 +116,9 @@ print(tli.table, include.rownames = FALSE)
 resultsdf = read.csv("summary_table.csv")
 library(huxtable)
 library(magrittr)
-as_hux( resultsdf ) %>%
+myhux <- as_hux( resultsdf )
+font_size(myhux) <-  8
+myhux %>%
   set_bold(1, everywhere) %>%
   set_bottom_border(1, everywhere) %>%
   set_caption( mycap ) %>%
