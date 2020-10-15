@@ -3,5 +3,5 @@
 "Noise-Sens.","0.09","0.16","0.09","0.06","0.07","0.1","R-squared"
 "Mixomics"," N/A ","0.62 +/ 0.01","0.64 +/ 0.03","0.65 +/ 0.03","0.65 +/ 0.04","0.61 +/ 0.03","Concordance"
 "brainAge"," N/A ","2+/-1.5","1.6+/-1.2","1.4+/-1.2","1.6+/-1.3","1.7+/-1.2","MAE"
-"PING-SNP"," N/A "," N.S."," N/A "," 3 components "," 6 components "," N/A ","MAE"
-"PING-Inf"," N/A "," N.S."," N/A "," 3 components "," 6 components "," N/A ","Inferential"
+"PING-Anx"," N/A "," 1 comp."," N/A "," 3 comp."," 5 comp."," N/A ","Inferential"
+"PING-Dep"," N/A "," 1 comp."," N/A "," 1 comp."," 5 comp."," N/A ","Inferential"

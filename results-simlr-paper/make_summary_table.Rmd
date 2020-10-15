@@ -77,28 +77,41 @@ resultsdf[rct,] = c( "brainAge",
   mean_sd( abs( ptbpICA$AgeAtScan - ptbpSVD$SiMLRRegPredAgeAtScan ) )[3],
   "MAE" )
 
-rct = rct + 1
-resultsdf[rct,] = c( "PING-SNP",
-    " N/A ",
-    " N.S.",
-    " N/A ",
-    " 3 components ",
-    " 6 components ",
-    " N/A ",
-    "MAE" )
+if ( FALSE ) {
+  rct = rct + 1
+  resultsdf[rct,] = c( "PING-SNP-recon",
+      " N/A ",
+      " 127.4",
+      " N/A ",
+      " 111.67 ",
+      " 99.20 ",
+      " N/A ",
+      " MSE (Frob.)" )
+  }
 
 rct = rct + 1
-resultsdf[rct,] = c( "PING-Inf",
+resultsdf[rct,] = c( "PING-Anx",
     " N/A ",
-    " N.S.",
+    " 1 comp.",
     " N/A ",
-    " 3 components ",
-    " 6 components ",
+    " 3 comp.",
+    " 5 comp.",
+    " N/A ",
+    "Inferential" )
+
+rct = rct + 1
+resultsdf[rct,] = c( "PING-Dep",
+    " N/A ",
+    " 1 comp.",
+    " N/A ",
+    " 1 comp.",
+    " 5 comp.",
     " N/A ",
     "Inferential" )
 
 
-mycap='Summary of RGCCA-SGCCA-SiMLR comparison results. RGCCA = regularized generalized canonical correlation analysis; SGCCA = sparse generalized canonical correlation analysis; Sim = similarity-driven multivariate linear reconstruction (SiMLR); Reg = regression; CCA = absolute canonical covariance; ICA = ICA mixing method; SVD = SVD mixing method.  Best results are highlighted in cadet blue; worst in antiquewhite. SiMLR with the absolute canonical covariance similarity measurement and SVD (SimCCASVD)as a mixing method performs best overall.  SiMLR with the regression energy and ICA mixing method (SimRegICA) outperforms SGCCA most consistently across sparseness levels, provides closely competitive performance overall, and is highlighted in pink.'
+mycap='Summary of RGCCA-SGCCA-SiMLR comparison results. RGCCA = regularized generalized canonical correlation analysis; SGCCA = sparse generalized canonical correlation analysis; Sim = similarity-driven multivariate linear reconstruction (SiMLR); Reg = regression; CCA = absolute canonical covariance; ICA = ICA mixing method; SVD = SVD mixing method.  Best results are highlighted in cadet blue; worst in antiquewhite. SiMLR with the absolute canonical covariance similarity measurement and SVD (SimCCASVD)as a mixing method performs best overall.  SiMLR with the regression energy and ICA mixing method (SimRegICA) outperforms SGCCA most consistently across sparseness levels, provides closely competitive performance overall, and is highlighted in pink.  MSE for the matrix
+completion error on SNP embeddings is measured by the Frobenius norm between the reconstructed and the true SNP embeddings.  The PING examples are exploratory analyses described in the supplementary information as we cannot directly share the data. The "n comp" description in the PING table refers to the number of significant components related to either anxiety or depression.'
 
 write.csv(resultsdf,"summary_table.csv",row.names=F)
 
@@ -124,14 +137,13 @@ myhux %>%
   set_caption( mycap ) %>%
       set_background_color(evens, everywhere, "grey95") %>%
       set_background_color(2:5, 5, "cadetblue1") %>%
-      set_background_color(3, 6, "pink")%>%
-      set_background_color(4, 6, "pink")%>%
-      set_background_color(6:7, 6, "cadetblue1")%>%
-      set_background_color(2, 2, "antiquewhite")%>%
-      set_background_color(3,3, "antiquewhite")%>%
-      set_background_color(4, 7, "antiquewhite")%>%
-#      set_background_color(4, 3, "antiquewhite")%>%
+      set_background_color(3, 6, "pink") %>%
+      set_background_color(4, 6, "pink") %>%
+      set_background_color(6:7, 6, "cadetblue1") %>%
+      set_background_color(2, 2, "antiquewhite") %>%
+      set_background_color(3,3, "antiquewhite")  %>%
+      set_background_color(4, 7, "antiquewhite") %>%
+      set_background_color(7, 5, "antiquewhite") %>%
       set_background_color(5:7, 3, "antiquewhite")
 
-
-````
+```
