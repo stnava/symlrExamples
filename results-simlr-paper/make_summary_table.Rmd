@@ -1,12 +1,12 @@
 ---
-title: 'Comparison of SiMLR and RGCCA: summary of all experiments'
+title: 'SiMLR: Figures and Table'
 author: "Brian B. Avants et al."
 date: "`r Sys.Date()`"
 output: pdf_document
 urlcolor: blue
 ---
 
-```{r,echo=FALSE}
+```{r,echo=FALSE,eval=FALSE}
 options(digits=2)
 library( PAutilities )
 simCCAMIXICA=read.csv("simulation_energycca_mixica.csv")
@@ -124,21 +124,19 @@ print(tli.table, include.rownames = FALSE)
 ```
 
 
-Noise and signal in simulation data.
-
-```{r}
+```{r,eval=FALSE,echo=FALSE}
 mdl=lm(formula = rgccaRSQ ~ corrupt1 + corrupt2 + corrupt3, data = simCCAMIXSVD)
 R2_predicted_from_noise_level=predict(mdl)
 rtemis::mplot3.xy( simCCAMIXSVD$rgccaRSQ, R2_predicted_from_noise_level,  main='RGCCA: R^2 predicted \n by noise level vs. true R^2', se.fit = TRUE, fit='gam', cex=2  )
 ```
 
-```{r}
+```{r,eval=FALSE,echo=FALSE}
 mdl=lm(formula = sgccaRSQ ~ corrupt1 + corrupt2 + corrupt3, data = simCCAMIXSVD)
 R2_predicted_from_noise_level=predict(mdl)
 rtemis::mplot3.xy( simCCAMIXSVD$sgccaRSQ, R2_predicted_from_noise_level,  main='SGCCA: R^2 predicted \n by noise level vs. true R^2', se.fit = TRUE, fit='gam', cex=2  )
 ```
 
-```{r}
+```{r,eval=FALSE,echo=FALSE}
 mdl=lm(formula = symRSQ ~ corrupt1 + corrupt2 + corrupt3, data = simCCAMIXSVD)
 R2_predicted_from_noise_level=predict(mdl)
 rtemis::mplot3.xy( simCCAMIXSVD$symRSQ, R2_predicted_from_noise_level,  main='SiMLR-CCA-SVD: R^2 predicted \n by noise level vs. true R^2', se.fit = TRUE, fit='gam' , cex=2 )
@@ -146,11 +144,7 @@ rtemis::mplot3.xy( simCCAMIXSVD$symRSQ, R2_predicted_from_noise_level,  main='Si
 
 
 
-## brain age figures
-
-
-
-```{r,echo=FALSE}
+```{r,eval=FALSE,echo=FALSE}
 
 mixAlg = 'ICA'
 mylims = range( ptbpICA$AgeAtScan ) + c(-0.5,0.5)
