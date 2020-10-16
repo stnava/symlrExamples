@@ -6,7 +6,7 @@ output: pdf_document
 urlcolor: blue
 ---
 
-```{r,echo=FALSE,eval=FALSE}
+```{r,echo=FALSE,eval=TRUE,warnings=FALSE}
 options(digits=2)
 library( PAutilities )
 simCCAMIXICA=read.csv("simulation_energycca_mixica.csv")
@@ -110,7 +110,17 @@ resultsdf[rct,] = c( "PING-Dep",
     "Inferential" )
 
 
-mycap='Summary of RGCCA-SGCCA-SiMLR comparison results. RGCCA = regularized generalized canonical correlation analysis; SGCCA = sparse generalized canonical correlation analysis; Sim = similarity-driven multivariate linear reconstruction (SiMLR); Reg = regression; CCA = absolute canonical covariance; ICA = ICA mixing method; SVD = SVD mixing method.  Best results are highlighted in cadet blue; worst in antiquewhite. SiMLR with the absolute canonical covariance similarity measurement and SVD (SimCCASVD)as a mixing method performs best overall.  SiMLR with the regression energy and ICA mixing method (SimRegICA) outperforms SGCCA most consistently across sparseness levels, provides closely competitive performance overall, and is highlighted in pink.  The PING examples are exploratory analyses described in the supplementary information as we cannot directly share the data. The "n comp" description in the PING table refers to the number of significant components related to either anxiety or depression.'
+#
+rct = rct + 1
+resultsdf[rct,] = c(
+  "Overall:",
+  " 6th (worst) ",
+    " 5th ",
+    " 3rd ",
+    " 1st ",
+    " 2nd ",
+    " 4th ",
+    "rank count" )
 
 write.csv(resultsdf,"summary_table.csv",row.names=F)
 
@@ -225,7 +235,7 @@ knitr::include_graphics("../figures/fig5.pdf")
 
 ```{r,results='asis',echo=FALSE}
 
-mycap='Summary of RGCCA-SGCCA-SiMLR comparison results. RGCCA = regularized generalized canonical correlation analysis; SGCCA = sparse generalized canonical correlation analysis; Sim = similarity-driven multivariate linear reconstruction (SiMLR); Reg = regression; CCA = absolute canonical covariance; ICA = ICA mixing method; SVD = SVD mixing method.  Best results are highlighted in cadet blue; worst in antiquewhite. SiMLR with the absolute canonical covariance similarity measurement and SVD (SimCCASVD)as a mixing method performs best overall.  SiMLR with the regression energy and ICA mixing method (SimRegICA) outperforms SGCCA most consistently across sparseness levels, provides closely competitive performance overall, and is highlighted in pink.  The PING examples are exploratory analyses described in the supplementary information as we cannot directly share the data. The "n comp" description in the PING table refers to the number of significant components related to either anxiety or depression.'
+mycap='Summary of RGCCA-SGCCA-SiMLR comparison results. RGCCA = regularized generalized canonical correlation analysis; SGCCA = sparse generalized canonical correlation analysis; Sim = similarity-driven multivariate linear reconstruction (SiMLR); Reg = regression; CCA = absolute canonical covariance; ICA = ICA mixing method; SVD = SVD mixing method.  Best results are highlighted in cadet blue; worst in antiquewhite. SiMLR with the absolute canonical covariance similarity measurement and SVD (SimCCASVD)as a mixing method performs best overall.  SiMLR with the regression energy and ICA mixing method (SimRegICA) outperforms SGCCA most consistently across sparseness levels, provides closely competitive performance overall, and is highlighted in pink.  The PING examples are exploratory analyses described in the supplementary information as we cannot directly share the data. The "n comp" description in the PING table refers to the number of significant components related to either anxiety or depression.  The last row summarizes our overall ranking and explains the relationship of cell color to the ranking system.  The rank is calculated by counting instances of a given rank across columns.'
 
 
 resultsdf = read.csv("summary_table.csv")
@@ -241,11 +251,17 @@ myhux %>%
       set_background_color(2:5, 5, "cadetblue1") %>%
       set_background_color(3, 6, "pink") %>%
       set_background_color(4, 6, "pink") %>%
+      set_background_color(5, c(4,6), "pink") %>%
+      set_background_color(2, 4, "pink") %>%
+      set_background_color(6, 5, "pink") %>%
       set_background_color(6:7, 6, "cadetblue1") %>%
       set_background_color(2, 2, "antiquewhite") %>%
       set_background_color(3,3, "antiquewhite")  %>%
       set_background_color(4, 7, "antiquewhite") %>%
       set_background_color(7, 5, "antiquewhite") %>%
-      set_background_color(5:7, 3, "antiquewhite")
+      set_background_color(5:7, 3, "antiquewhite") %>%
+      set_background_color(8, 2, "antiquewhite")%>%
+      set_background_color(8, 5, "cadetblue1")%>%
+      set_background_color(8, 6, "pink")
 
 ```
