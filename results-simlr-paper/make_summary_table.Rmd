@@ -124,30 +124,6 @@ print(tli.table, include.rownames = FALSE)
 ```
 
 
-```{r,results='asis',echo=FALSE}
-resultsdf = read.csv("summary_table.csv")
-library(huxtable)
-library(magrittr)
-myhux <- as_hux( resultsdf )
-font_size(myhux) <-  8
-myhux %>%
-  set_bold(1, everywhere) %>%
-  set_bottom_border(1, everywhere) %>%
-  set_caption( mycap ) %>%
-      set_background_color(evens, everywhere, "grey95") %>%
-      set_background_color(2:5, 5, "cadetblue1") %>%
-      set_background_color(3, 6, "pink") %>%
-      set_background_color(4, 6, "pink") %>%
-      set_background_color(6:7, 6, "cadetblue1") %>%
-      set_background_color(2, 2, "antiquewhite") %>%
-      set_background_color(3,3, "antiquewhite")  %>%
-      set_background_color(4, 7, "antiquewhite") %>%
-      set_background_color(7, 5, "antiquewhite") %>%
-      set_background_color(5:7, 3, "antiquewhite")
-
-```
-
-
 Noise and signal in simulation data.
 
 ```{r}
@@ -211,5 +187,71 @@ rtemis::mplot3.xy( ptbpICA$AgeAtScan, ptbpICA$SiMLRRegPredAgeAtScan,
   rtemis::mplot3.xy( ptbpSVD$AgeAtScan, ptbpSVD$SiMLRRegPredAgeAtScan,
     main=mycap,
     se.fit = TRUE, locfit , cex=1.9, xlim=mylims,ylim=mylims, xlab='True Age', ylab='Predicted Age' )
+
+```
+
+
+
+\newpage
+
+```{r, echo=FALSE, out.width="100%", fig.cap="Example SiMLR study overview."}
+knitr::include_graphics("../figures/fig1.pdf")
+```
+
+
+\newpage
+
+```{r, echo=FALSE, out.width="100%", fig.cap="SiMLR simulation study design."}
+knitr::include_graphics("../figures/fig2.pdf")
+```
+
+
+\newpage
+
+```{r, echo=FALSE, out.width="100%", fig.cap="SiMLR simulation study results: sensitivity to noise and ability to recover signal."}
+knitr::include_graphics("../figures/fig3.pdf")
+```
+
+
+\newpage
+
+```{r, echo=FALSE, out.width="100%", fig.cap="Mixomics study: supervised survival prediction comparison to RGCCA."}
+knitr::include_graphics("../figures/fig4.pdf")
+```
+
+
+\newpage
+
+```{r, echo=FALSE, out.width="100%", fig.cap="PTBP fully supervised brain age prediction: comparison to RGCCA."}
+knitr::include_graphics("../figures/fig5.pdf")
+```
+
+\newpage
+
+
+```{r,results='asis',echo=FALSE}
+
+mycap='Summary of RGCCA-SGCCA-SiMLR comparison results. RGCCA = regularized generalized canonical correlation analysis; SGCCA = sparse generalized canonical correlation analysis; Sim = similarity-driven multivariate linear reconstruction (SiMLR); Reg = regression; CCA = absolute canonical covariance; ICA = ICA mixing method; SVD = SVD mixing method.  Best results are highlighted in cadet blue; worst in antiquewhite. SiMLR with the absolute canonical covariance similarity measurement and SVD (SimCCASVD)as a mixing method performs best overall.  SiMLR with the regression energy and ICA mixing method (SimRegICA) outperforms SGCCA most consistently across sparseness levels, provides closely competitive performance overall, and is highlighted in pink.  The PING examples are exploratory analyses described in the supplementary information as we cannot directly share the data. The "n comp" description in the PING table refers to the number of significant components related to either anxiety or depression.'
+
+
+resultsdf = read.csv("summary_table.csv")
+library(huxtable)
+library(magrittr)
+myhux <- as_hux( resultsdf )
+font_size(myhux) <-  8
+myhux %>%
+  set_bold(1, everywhere) %>%
+  set_bottom_border(1, everywhere) %>%
+  set_caption( mycap ) %>%
+      set_background_color(evens, everywhere, "grey95") %>%
+      set_background_color(2:5, 5, "cadetblue1") %>%
+      set_background_color(3, 6, "pink") %>%
+      set_background_color(4, 6, "pink") %>%
+      set_background_color(6:7, 6, "cadetblue1") %>%
+      set_background_color(2, 2, "antiquewhite") %>%
+      set_background_color(3,3, "antiquewhite")  %>%
+      set_background_color(4, 7, "antiquewhite") %>%
+      set_background_color(7, 5, "antiquewhite") %>%
+      set_background_color(5:7, 3, "antiquewhite")
 
 ```
