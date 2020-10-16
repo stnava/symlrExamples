@@ -146,3 +146,70 @@ myhux %>%
       set_background_color(5:7, 3, "antiquewhite")
 
 ```
+
+
+Noise and signal in simulation data.
+
+```{r}
+mdl=lm(formula = rgccaRSQ ~ corrupt1 + corrupt2 + corrupt3, data = simCCAMIXSVD)
+R2_predicted_from_noise_level=predict(mdl)
+rtemis::mplot3.xy( simCCAMIXSVD$rgccaRSQ, R2_predicted_from_noise_level,  main='RGCCA: R^2 predicted \n by noise level vs. true R^2', se.fit = TRUE, fit='gam', cex=2  )
+```
+
+```{r}
+mdl=lm(formula = sgccaRSQ ~ corrupt1 + corrupt2 + corrupt3, data = simCCAMIXSVD)
+R2_predicted_from_noise_level=predict(mdl)
+rtemis::mplot3.xy( simCCAMIXSVD$sgccaRSQ, R2_predicted_from_noise_level,  main='SGCCA: R^2 predicted \n by noise level vs. true R^2', se.fit = TRUE, fit='gam', cex=2  )
+```
+
+```{r}
+mdl=lm(formula = symRSQ ~ corrupt1 + corrupt2 + corrupt3, data = simCCAMIXSVD)
+R2_predicted_from_noise_level=predict(mdl)
+rtemis::mplot3.xy( simCCAMIXSVD$symRSQ, R2_predicted_from_noise_level,  main='SiMLR-CCA-SVD: R^2 predicted \n by noise level vs. true R^2', se.fit = TRUE, fit='gam' , cex=2 )
+```
+
+
+
+## brain age figures
+
+
+
+```{r,echo=FALSE}
+
+mixAlg = 'ICA'
+mylims = range( ptbpICA$AgeAtScan ) + c(-0.5,0.5)
+locfit = 'lm'
+eage = round(mean(abs(ptbpICA$AgeAtScan-ptbpICA$RGCCAPredAgeAtScan))*1000)/1000
+mycap = paste0('SGCCA: ', eage,' MAE ')
+rtemis::mplot3.xy( ptbpICA$AgeAtScan, ptbpICA$RGCCAPredAgeAtScan,
+  main=mycap,
+  se.fit = TRUE, fit=locfit , cex=1.9, xlim=mylims,ylim=mylims, xlab='True Age', ylab='Predicted Age' )
+
+
+eage = round(mean(abs(ptbpICA$AgeAtScan-ptbpICA$SiMLRCCAPredAgeAtScan))*1000)/1000
+mycap = paste0('SiMLR-CCA-Mix-',mixAlg,': ', eage,' MAE ')
+rtemis::mplot3.xy( ptbpICA$AgeAtScan, ptbpICA$SiMLRCCAPredAgeAtScan,
+  main=mycap,
+  se.fit = TRUE, fit='gam' , cex=1.9, xlim=mylims,ylim=mylims, xlab='True Age', ylab='Predicted Age' )
+
+eage = round(mean(abs(ptbpICA$AgeAtScan-ptbpICA$SiMLRRegPredAgeAtScan))*1000)/1000
+mycap = paste0('SiMLR-Reg-Mix-',mixAlg,': ', eage,' MAE ')
+rtemis::mplot3.xy( ptbpICA$AgeAtScan, ptbpICA$SiMLRRegPredAgeAtScan,
+  main=mycap,
+  se.fit = TRUE, locfit , cex=1.9, xlim=mylims,ylim=mylims, xlab='True Age', ylab='Predicted Age' )
+
+
+  mixAlg = 'SVD'
+  eage = round(mean(abs(ptbpSVD$AgeAtScan-ptbpSVD$SiMLRCCAPredAgeAtScan))*1000)/1000
+  mycap = paste0('SiMLR-CCA-Mix-',mixAlg,': ', eage,' MAE ')
+  rtemis::mplot3.xy( ptbpSVD$AgeAtScan, ptbpSVD$SiMLRCCAPredAgeAtScan,
+    main=mycap,
+    se.fit = TRUE, locfit , cex=1.9, xlim=mylims,ylim=mylims, xlab='True Age', ylab='Predicted Age' )
+
+  eage = round(mean(abs(ptbpSVD$AgeAtScan-ptbpSVD$SiMLRRegPredAgeAtScan))*1000)/1000
+  mycap = paste0('SiMLR-Reg-Mix-',mixAlg,': ', eage,' MAE ')
+  rtemis::mplot3.xy( ptbpSVD$AgeAtScan, ptbpSVD$SiMLRRegPredAgeAtScan,
+    main=mycap,
+    se.fit = TRUE, locfit , cex=1.9, xlim=mylims,ylim=mylims, xlab='True Age', ylab='Predicted Age' )
+
+```
