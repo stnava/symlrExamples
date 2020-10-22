@@ -2,7 +2,7 @@
 title: 'SiMLR Simulation Study: Demonstrate basic assumptions for SiMLR and compare to SGCCA in 2 component recovery'
 author: "Brian B. Avants et al."
 date: "`r Sys.Date()`"
-output: html_document
+output: pdf_document
 ---
 
 Decode two known latent signals distributed across 3 matrices with SiMLR and SGCCA.
@@ -42,7 +42,7 @@ doCorruption = TRUE
 if ( ! exists( "energyType" ) ) energyType = 'regression'
 if ( ! exists( "mixingMethod" ) ) mixingMethod = 'ica'
 nComp = 4   # n components
-if ( ! exists( "nsims" ) ) nsims = 50
+if ( ! exists( "nsims" ) ) nsims = 120
 nits = 100    # n-iterations
 nz = 0       # simulated signal parameter - not sensitive to this choice
 nzs = 1.5    # simulated signal parameter - not sensitive to this choice
@@ -127,7 +127,7 @@ for ( sim in c(sim:nsims)  ) {
       initialUMatrix = nComp,
       verbose = FALSE,
       iterations = nits,
-      constraint = 'Stiefel', jointInitialization=FALSE,
+      constraint = 'Stiefel',
       mixAlg = mixingMethod  ) # allows different methods to be compared
 
     p1 = mat1 %*% abs(result$v[[1]]); colnames(p1) = paste0("PC",1:ncol(p1))
@@ -154,7 +154,7 @@ for ( sim in c(sim:nsims)  ) {
 
     # compare to SGCCA - follow suggested glioma example in documentation
     myrgcca = sgcca( # this initializes with SVD
-          A = list( mat1[train,],mat2[train,],mat3[train,]),
+          A = inmats,
           scheme = "centroid",
           ncomp = rep( nComp, 3 ),
           scale = TRUE,
@@ -193,13 +193,12 @@ The r-squared value is most informative as it tells us how well the omnibus
 model predicts the known latent signal.
 
 Compare SiMLR R$^2$ vs. sgcca R$^2$ with paired t-test *for the first hidden signal* and
-*for the second hidden signal*
+*for the second hidden signal* -- we concatenate the outcomes to test both at once.
 ```{r}
 # first signal
-print(t.test(simdatafrm[,"symRSQ1"],simdatafrm[,"sgccaRSQ1"],paired=T))
-
-# second signal
-print(t.test(simdatafrm[,"symRSQ2"],simdatafrm[,"sgccaRSQ2"],paired=T))
+simvec = c( simdatafrm[,"symRSQ1"], simdatafrm[,"symRSQ2"] )
+sgcvec = c( simdatafrm[,"sgccaRSQ1"], simdatafrm[,"sgccaRSQ2"] )
+print(t.test(simvec,sgcvec,paired=T))
 ```
 
 mean performance
@@ -223,16 +222,21 @@ points( simdatafrm[,"sgccaRSQ2"], simdatafrm[,"symRSQ2"], col='red', ylab='Rsq -
 Look at results via histogram
 
 ```{r,eval=TRUE}
+temp = na.omit( simdatafrm )
 library( rtemis )
 myMeth = paste0("SiMLR-mix-",mixingMethod,'-E-',energyType)
 # Build dataset with different distributions
 mdata <- data.frame(
   method = rep(
     c( paste0(myMeth,1), paste0(myMeth,2),
-    "SGCCA1", "SGCCA2" ),  each = nsims ),
-  value = c( simdatafrm[,1], simdatafrm[,3], simdatafrm[,2], simdatafrm[,4]  )
+    "SGCCA1", "SGCCA2" ),  each = nrow( temp ) ),
+  value = c( temp[,1], temp[,3], temp[,2], temp[,4]  )
 )
 mplot3.x( split( mdata$value, mdata$method )  )
 ofn = paste0( '/results/simulation_energy', energyType, "_mix", mixingMethod, '.csv' )
 if ( dir.exists( "/results/" ) ) write.csv( simdatafrm, ofn )
 ```
+
+Note that the gap between the 2nd component recovery is relatively
+larger than that of the first suggesting better matrix-level signal
+recovery properties are exhibited in SiMLR.
