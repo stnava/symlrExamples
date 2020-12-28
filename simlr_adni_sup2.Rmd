@@ -1,0 +1,442 @@
+---
+title: "SiMLR multi-omics study in ADNI"
+author: Brian B. Avants, Nicholas J. Tustison, James R. Stone for the ADNI
+date: December 22, 2020
+output: pdf_document
+---
+
+```{r setup0,echo=FALSE,message=FALSE,warning=FALSE}
+rm( adnimerge )
+# set.seed( Sys.time() )
+options(digits=5)
+library( kableExtra )
+library( ANTsR )
+library( moonBook )
+library( gridExtra )
+library( emmeans )
+library( jtools )
+library( ggplot2 )
+library( ADNIMERGE )
+library( RGCCA )
+library(plot.matrix)
+library(Matrix)
+cogNames = names(adnimerge)[grep("EcogSP",names(adnimerge))]
+cogNames = cogNames[ grep("bl",cogNames) ]
+cogNames = c( cogNames, "MMSE.bl", "mPACCdigit",  "ADAS11.bl",  "ADAS13.bl",
+  "ADASQ4.bl", "LDELTOTAL.bl", "CDRSB.bl", "mPACCtrailsB", "RAVLT.immediate.bl",
+  "RAVLT.learning.bl"  )
+```
+
+```{r setup,echo=FALSE,message=FALSE,warning=FALSE}
+phs1 = read.csv( "Genotype_Results/DESIKANLAB.csv" )
+# phs3 = merge( phs1, phs2, all.x=TRUE )
+adnimerge = merge( adnimerge, phs1, all.x=TRUE )
+adnimerge = adnimerge[ adnimerge$VISCODE == 'bl', ]
+selector1 = !is.na( adnimerge$PHS )
+selector2 = !is.na( adnimerge$EcogPtMem.bl )
+mydxs = c("CN", "SMC", "EMCI","LMCI","AD")
+# mydxs = c("CN", "SMC", "EMCI","LMCI" )
+selector3 = !is.na( adnimerge$TAU.bl)  &  !is.na(adnimerge$AV45.bl) & !is.na(adnimerge$FDG.bl)  &
+  adnimerge$DX.bl  %in% mydxs
+# selector4 = adnimerge$DX.bl %in% c("CN"  )
+adnimerge = adnimerge[ selector1 & selector2 & selector3 , ]
+adnimerge$CIR = log( adnimerge$CIR )
+
+trtesel = caret::createDataPartition( adnimerge$LDELTOTAL.bl, p=0.8 )$Resample1
+adnimerge$isTrain = rep( FALSE, nrow( adnimerge ) )
+adnimerge$isTrain[ trtesel ] = TRUE
+# put  together the volumes of data
+
+structNames = c( "Ventricles.bl", "Hippocampus.bl",  "WholeBrain.bl",         "Entorhinal.bl","Fusiform.bl", "MidTemp.bl" ) # , "ICV.bl" )
+structural = antsrimpute( adnimerge[, structNames] )
+
+mNames = c("ABETA.bl","TAU.bl","PTAU.bl","FDG.bl","AV45.bl")
+# mNames = c("ABETA.bl","TAU.bl","PTAU.bl","AV45.bl")
+molecular = adnimerge[, mNames]
+molecular$PTAU.bl = as.numeric( molecular$PTAU.bl )
+molecular$TAU.bl = as.numeric( molecular$TAU.bl )
+molecular$ABETA.bl = as.numeric( molecular$ABETA.bl )
+molecular$ABETA.bl[ is.na(as.numeric( molecular$ABETA.bl )) ] = 1700
+molecular = antsrimpute( molecular )
+
+cognition = antsrimpute( adnimerge[, cogNames] )
+
+adnimerge$APOE40 = as.numeric(adnimerge$APOE4 == 0)
+adnimerge$APOE42 = as.numeric(adnimerge$APOE4 == 2)
+adnimerge$APOE4bin = as.numeric(adnimerge$APOE4 > 1 )
+genNames = c( "PHS", "CIR" , "APOE4" ) #  , "APOE42"  )
+genetics = adnimerge[, genNames]
+
+```
+
+# Overview
+
+The Alzheimer's disease neuroimaging initiative (ADNI) distributes multi-omic
+data in healthy elderly, mild cognitive impairment and Alzheimer's disease
+subjects ages 55 to 90.  As of summer 2020, we obtained aggregate data that
+span ADNI-1, ADNI-2, ADNI-GO and ADNI-3 and that summarizes a variety of measurements in 2,269 subjects.
+Data is available at [http://adni.loni.usc.edu](http://adni.loni.usc.edu).
+
+A polygenic hazard score (PHS) and related measurements were added to ADNI as the result
+of recent work by the Desikan lab [1,2,3].  These measurements are also available
+at the above link.  The PHS is derived from 17,008 AD cases and 37,154 controls
+from the International Genomics of Alzheimer’s Project and is based on a
+Cox proportional hazards model that predicts risk for AD conversion.
+We merged both the PHS and the cumulative incidence rate (CIR)
+into the omnibus data file to enable a multi-omics study.
+
+The PHS models the cumulative
+genetic risk for AD which includes but also goes beyond the
+apolipoprotein E type 4 (APOE4) allele.
+Evaluation of the PHS with respect to in vivo markers of
+AD-related pathology affirmed that "amyloid and total tau positivity
+systematically varies as a function of PHS" [2].  Furthermore, [3] showed
+additional relationships with both longitudinal atrophy and cognitive decline.
+The success of the PHS in predicting age of onset for sporadic AD
+demonstrates that it may indeed capture distributed genetic risk.  However,
+PHS may also capture disease processes beyond pure AD as it also correlates with
+cerebrovascular pathology and presence of Lewy body pathology [3].
+
+# Study design
+
+In this evaluation, we will use dimensionality reduction methods to build
+low-dimensional models predicting PHS from disparate modalities.  We use
+dimensionality reduction as a supervised learning method for
+integrating several objective measurements to predict
+a lower-dimensional variable, the PHS for each individual in a test set.
+
+## Data description
+
+These multi-view matrices include:
+
+* volumetric (structural) MRI measures of the hippocampus,
+ventricles, whole brain, entorhinal cortex, fusiform cortex
+and middle temporal cortex ($p$=6);
+
+* AD-relevant cognitive metrics totaling $p=17$ predictors (shown in Table 1);
+
+```{r,echo=FALSE,message=FALSE,warnings=FALSE,warning=FALSE}
+mymeansCN=rep( NA, length(cogNames) )
+names(mymeansCN) = cogNames
+dx='CN'
+for ( zz in cogNames ) {
+  mmn = mean( adnimerge[ adnimerge$DX.bl==dx,zz], na.rm=T)
+  mmn = substr(toString(mmn),0,4)
+  mysd = sd( antsrimpute(adnimerge[ adnimerge$DX.bl==dx,zz]), na.rm=T)
+  mysd = substr(toString(mysd),0,4)
+  mymeansCN[zz] = paste0(mmn, " +/- ", mysd )
+}
+
+dx='SMC'
+mymeansSMC=rep( NA, length(cogNames) )
+names(mymeansSMC) = cogNames
+for ( zz in cogNames ) {
+  mmn = mean( adnimerge[ adnimerge$DX.bl==dx,zz], na.rm=T)
+  mmn = substr(toString(mmn),0,4)
+  mysd = sd( antsrimpute(adnimerge[ adnimerge$DX.bl==dx,zz]), na.rm=T)
+  mysd = substr(toString(mysd),0,4)
+  mymeansSMC[zz] = paste0(mmn, " +/- ", mysd )
+}
+
+dx='AD'
+mymeansAD=rep( NA, length(cogNames) )
+names(mymeansAD) = cogNames
+for ( zz in cogNames ) {
+  mmn = mean( adnimerge[ adnimerge$DX.bl==dx,zz], na.rm=T)
+  mmn = substr(toString(mmn),0,4)
+  mysd = sd( antsrimpute(adnimerge[ adnimerge$DX.bl==dx,zz]), na.rm=T)
+  mysd = substr(toString(mysd),0,4)
+  mymeansAD[zz] = paste0(mmn, " +/- ", mysd )
+}
+
+mymeansMCI=rep( NA, length(cogNames) )
+names(mymeansMCI) = cogNames
+for ( zz in cogNames ) {
+  mmn = mean( adnimerge[ adnimerge$DX.bl %in% c("EMCI","LMCI"),zz], na.rm=T)
+  mmn = substr(toString(mmn),0,4)
+  mysd = sd( antsrimpute(adnimerge[ adnimerge$DX.bl %in% c("EMCI","LMCI"),zz]), na.rm=T)
+  mysd = substr(toString(mysd),0,4)
+  mymeansMCI[zz] = paste0(mmn, " +/- ", mysd )
+}
+
+cogNamesDF=data.frame( CN=mymeansCN, SMC=mymeansSMC, MCI=mymeansMCI, AD=mymeansAD )
+knitr::kable( cogNamesDF, caption = "Mean and standard deviation of the cognitive variables used in this study." )
+```
+
+* molecular measurements of glucose metabolism (via fluorodeoxyglucose (FDG)-positron emission tomography (PET)), amyloid levels
+(via cerebrospinal fluid assays and AV45 PET (florbetapir)), tau and phosphorylated tau
+levels from cerebrospinal fluid ($p$=5);
+
+* genetic risk for AD (the supervising matrix) composed of the APOE4 allele (a trinary
+  value in 0,1,2), the PHS and the CIR.
+
+Subjects in this study were required to have all of the above modalities. This resulted in 723 (n=335 female) unique individuals with baseline diagnosis of either control (n=137), subjective memory complaint (n=80), MCI (n=391) or AD (n=115) with age 72.55 $\pm$ 7.2.  The mean MMSE at baseline in each diagnostic group is shown in table 1.  Specific RIDs for the included subjects appear toward the end of this report.
+
+
+
+This complete dataset, relative to our other evaluation studies, is
+more classical in the sense that $n >> p$.  As such, sparseness is perhaps
+less critical to preventing overfitting and for interpretation.  We therefore
+compare SiMLR *without sparseness* to RGCCA as well as SGCCA and SiMLR
+variants *with sparseness*.
+
+## Evaluation of PHS prediction
+
+Dimensionality reduction across the joint space of brain structure,
+cognition and molecular signatures of disease (amyloid and tau -
+the known primary pathological vectors as well as a measure of
+glucose metabolism, FDG PET) should lead to an approximation
+of the latent AD space, especially with the direct supervision of PHS, CIR
+and APOE4 genotype.
+The polygenic risk for AD will serve as a proxy
+for the true latent space, which cannot be known.  As such, we do not expect
+to predict the PHS exactly but to find a latent space that is at least
+related to the PHS:
+
+> we assess the success of this learning process
+via cross-validation i.e. 150 training-testing splits of the data (80\%
+of data in training set) with
+learning and evaluation results being tabulated at each split.  This permits a
+paired $t$-test on the $R^2$ of the predicted PHS to the real PHS to compare
+the methods.
+
+\noindent This study design effectively inverts the PHS evaluation approach used in [2,3].
+We achieve this by jointly decomposing the matrices describing these 4 types of
+input data ( genetic risk, structure, molecular and cognition ) and then,
+in a test set, demonstrate that  polygenic risk score can be predicted from the
+latent space of the other 3 modalities.
+RGCCA, SGCCA and SiMLR perform very closely in this study with SiMLR
+showing an edge in performance across all settings.  Parameters for the methods were matched
+as closely as is possible for each comparison.  Results are in Figure 1 where
+we note that each run is computed with a different starting seed for the
+series of cross-validation splits.  Additional details follow.
+
+### Dimensionality reduction parameters
+
+For both SGCCA and SiMLR, we derive two
+components from the dimensionality reduction, i.e. a rank-2 solution for
+each modality. We choose a very low-dimensional space for interpretability and because
+the input matrices are themselves fairly small with the smallest matrix
+containing only 3 columns (genetic risk). We use default parameters for each method
+with a sparseness penalty, for SGCCA and SiMLR comparisons, that seeks
+to zero out roughly half of the feature variables in each matrix.  For SiMLR
+and RGCCA comparisons, we do not use sparseness penalties.
+
+
+### Joint prediction of PHS from structure, cognition and molecular predictors
+
+The variable selection listed in the previous section results in low-dimensional
+predictors that we use in linear regression to predict PHS as an outcome variable.
+Our baseline model is of the form:
+$$
+\text{PHS} \approx \text{Age} + \text{Gender} + \text{EducationalLevel}
+$$
+with each dimensionality reduction evaluated with an extended model adding
+a rank-2 matrix of predictors for each modality:
+$$
+\text{PHS} \approx \cdots + \text{structure} + \text{cognition} + \text{molecular}
+$$
+where each predictor above is defined by:
+$$
+\text{predictor} = X_\text{predictor} * V_\text{predictor},
+$$
+i.e. the low-dimensional representation of each data matrix.
+A better latent representation should result in a better prediction of PHS in
+the test data.
+
+
+```{r rgcca,echo=FALSE}
+# scale the data here - to be consistent across both methods
+myA = list(
+  str=scale(data.matrix(structural),F,F)[adnimerge$isTrain,],
+  cog=scale(data.matrix(cognition),F,F)[adnimerge$isTrain,],
+  mol=scale(data.matrix(molecular),F,F)[adnimerge$isTrain,],
+  gen=scale(data.matrix(genetics),F,F)[adnimerge$isTrain,] )
+n = length(myA)
+voi = "CIR"
+voi = "PHS"
+nEmbed = 2
+# default parameters here are for RGCCA vs SiMLR without sparseness
+mysq1 = c(0.4,0.4,0.0,0.0)
+mysq1 = c(0.,0.,0.0,0.0)
+mysq2 = c( 0.6, 0.6, 1, 1 )
+signage = c( "positive", "either", "either", "positive" )
+if ( max(mysq1) > 0 ) signage = rep( "either",  n )
+if ( ! exists("doRegression"))
+  doRegression=c( "cca", "regression", "lowRankRegression" )[1]
+
+if ( max(mysq1) > 0 ) { # does not behave well with small data
+mysgcca = sgcca( # this initializes with SVD
+  A = myA,
+  C = matrix(1,ncol=n,nrow=n)-diag(n),
+  c1 = mysq2,  # set to match simlr
+  ncomp = rep( nEmbed, n ), scale = TRUE, verbose = FALSE )
+
+myrgcca = list( v = mysgcca$a )
+} else {
+mysgcca = rgcca( # this initializes with SVD
+  A = myA,
+  C = matrix(1,ncol=n,nrow=n)-diag(n),
+  tau = rep( 1, n ), # for rgcca only
+  ncomp = rep( nEmbed, n ), scale = TRUE, verbose = FALSE )
+
+myrgcca = list( v = mysgcca$a )
+}
+```
+
+
+```{r simlr,echo=FALSE,fig.height=7,fig.width=7}
+regs = list( )
+positiveCor <- function( x, thresh=0.5 ) {
+  xcor = ( cor( x ))
+  xcor[ xcor < thresh ] = 0
+  Matrix(xcor, sparse = TRUE)
+}
+# we use this for high-dimensional data but not needed here
+# regs = regularizeSimlr( myA, knn = c(5,5,5,5) )
+regs[[1]] = positiveCor( myA$str )
+regs[[2]] = positiveCor( myA$cog )
+regs[[3]] = positiveCor( myA$mol )
+regs[[4]] = positiveCor( myA$gen )
+
+if ( ! exists("mxAlg") )
+  mxAlg = sample( c("svd", "ica", "avg", "rrpca-l", "rrpca-s", "pca", "stochastic"), 1 )
+
+mysim = simlr(
+    myA,
+    regs,
+    iterations = 100,
+    positivities = signage,
+    sparsenessQuantiles = mysq1,
+    initialUMatrix = nEmbed,
+    mixAlg = mxAlg,
+    energyType = doRegression,
+    verbose = FALSE )
+
+if ( FALSE ) {
+#  plot(image(Matrix(regs[[1]], sparse = TRUE), xlab='Structural Regularization',ylab=''  ))
+#  plot(image(Matrix(regs[[2]], sparse = TRUE), xlab='Cognitive Battery Regularization',ylab=''    ))
+#  plot(image(Matrix(regs[[3]], sparse = TRUE), xlab='Molecular Imaging Regularization',ylab=''    ))
+#  plot(image(Matrix(regs[[4]], sparse = TRUE), xlab='Genetics Regularization',ylab=''    ))
+  structuralRegularization=as.matrix(regs[[1]])
+  plot( structuralRegularization, breaks=c(0.5,0.6,0.7,0.8,0.9,1), cex=0.25,
+    fmt.key="%.3f",axis.row=NULL, digits=3, fmt.cell='%.2f', text.cell=list(cex=0.9) )
+  cognitiveRegularization=as.matrix(regs[[2]])
+  plot( cognitiveRegularization, breaks=c(0.5,0.6,0.7,0.8,0.9,1), cex=0.25,
+    fmt.key="%.3f",axis.row=NULL, digits=3,  fmt.cell='%.2f', text.cell=list(cex=0.6)  )
+  molecularRegularization=as.matrix(regs[[3]])
+  plot( molecularRegularization, breaks=c(0.5,0.6,0.7,0.8,0.9,1), cex=0.25,
+    fmt.key="%.3f",axis.row=NULL, digits=3,  fmt.cell='%.2f', text.cell=list(cex=1)  )
+  geneticriskRegularization=as.matrix(regs[[4]])
+  plot( geneticriskRegularization, breaks=c(0.5,0.6,0.7,0.8,0.9,1), cex=0.25,
+    fmt.key="%.3f",axis.row=NULL, digits=3,  fmt.cell='%.2f', text.cell=list(cex=1)  )
+}
+```
+
+
+```{r resultsJoint,echo=FALSE}
+library( randomForest )
+bform = paste( voi, "  ~ AGE + PTGENDER + PTEDUCAT" )
+pnames = c(paste0("str",1:nEmbed),paste0("cog",1:nEmbed),paste0("mol",1:nEmbed))
+fform = as.formula( paste( bform, "+", paste(pnames,collapse='+')) )
+myvars1 = cbind(
+  data.matrix(structural) %*% ( myrgcca$v[[1]] ),
+  data.matrix(cognition) %*% ( myrgcca$v[[2]] ),
+  data.matrix(molecular) %*% ( myrgcca$v[[3]] ) )
+colnames(myvars1)=pnames
+adnimergeSGC = cbind( adnimerge, myvars1 )
+rgmdl = ( lm( (fform), data=adnimergeSGC[adnimerge$isTrain, ], na.action=na.omit))
+rgmdlp = predict( rgmdl,newdata=adnimergeSGC[!adnimerge$isTrain, ])
+myanvr = cor( rgmdlp, adnimerge[!adnimerge$isTrain, voi ] )
+myvars2 = cbind(
+  data.matrix(structural) %*% ( mysim$v[[1]] ),
+  data.matrix(cognition) %*% ( mysim$v[[2]] ),
+  data.matrix(molecular) %*% ( mysim$v[[3]] ) )
+colnames(myvars2)=pnames
+adnimergeSIM = cbind( adnimerge, myvars2 )
+simdl = ( lm(  fform,data=adnimergeSIM[adnimerge$isTrain, ]))
+simdlp = predict( simdl,newdata=adnimergeSIM[!adnimerge$isTrain, ])
+myanvs = cor( simdlp, adnimerge[!adnimerge$isTrain, voi ] )
+rrsq=(myanvr)^2
+ssq=(myanvs)^2
+```
+
+![Cross-validation results: SiMLR-CCA (no sparseness) vs RGCCA (left),
+SiMLR-Regression (default sparseness) vs SGCCA (same sparseness as SiMLR) (center)
+and SiMLR-CCA (default sparseness) vs SGCCA (same sparseness as SiMLR) (right).
+For all panels, the blue/red triangles represent points where SiMLR yields a better/worse
+result than RGCCA or SGCCA.  Relatedly, points above the dotted line occur
+when SiMLR exhibits better performance.](./summary_results.pdf)
+
+
+# References
+
+[1] Desikan, Rahul S., et al. "Genetic assessment of age-associated Alzheimer disease risk: Development and validation of a polygenic hazard score." PLoS medicine 14.3 (2017): e1002258.
+
+[2] Tan, Chin Hong, et al. "Polygenic hazard score: an enrichment marker for Alzheimer’s associated amyloid and tau deposition." Acta neuropathologica 135.1 (2018): 85-93.
+
+[3] Tan, Chin Hong, et al. "Polygenic hazard score, amyloid deposition and Alzheimer’s neurodegeneration." Brain 142.2 (2019): 460-470.
+
+
+## Data usage
+
+Data used in the preparation of this report were obtained from the Alzheimer's Disease Neuroimaging Initiative (ADNI) database (adni.loni.usc.edu). The ADNI was launched in 2003 as a public-private partnership, led by Principal Investigator Michael W. Weiner, MD. The primary goal of ADNI has been to test whether serial magnetic resonance imaging (MRI), positron emission tomography (PET), other biological markers, and clinical and neuropsychological assessment can be combined to measure the progression of mild cognitive impairment (MCI) and early Alzheimer’s disease (AD). For up-to-date information, see www.adni-info.org.
+
+## ADNI subject ids
+
+The following RIDs were used at the baseline visit in this study.
+
+```{r rids,echo=FALSE}
+print( adnimerge$RID )
+```
+
+## Data files
+
+* ADNIMERGE in `R`
+
+* `DESIKANLAB.csv` from LONI
+
+## Acknowledgments
+
+Data collection and sharing for this project was funded by the Alzheimer's Disease Neuroimaging Initiative (ADNI) (National Institutes of Health Grant U01 AG024904) and DOD ADNI (Department of Defense award number W81XWH-12-2-0012). ADNI is funded by the National Institute on Aging, the National Institute of Biomedical Imaging and Bioengineering, and through generous contributions from the following: AbbVie, Alzheimer’s Association; Alzheimer’s Drug Discovery Foundation; Araclon Biotech; BioClinica, Inc.; Biogen; Bristol-Myers Squibb Company; CereSpir, Inc.; Eisai Inc.; Elan Pharmaceuticals, Inc.; Eli Lilly and Company; EuroImmun; F. Hoffmann-La Roche Ltd and its affiliated company Genentech, Inc.; Fujirebio; GE Healthcare; IXICO Ltd.; Janssen Alzheimer Immunotherapy Research & Development, LLC.; Johnson & Johnson Pharmaceutical Research & Development LLC.; Lumosity; Lundbeck; Merck & Co., Inc.; Meso Scale Diagnostics, LLC.; NeuroRx Research; Neurotrack Technologies; Novartis Pharmaceuticals Corporation; Pfizer Inc.; Piramal Imaging; Servier; Takeda Pharmaceutical Company; and Transition Therapeutics. The Canadian Institutes of Health Research is providing funds to support ADNI clinical sites in Canada. Private sector contributions are facilitated by the Foundation for the National Institutes of Health (www.fnih.org). The grantee organization is the Northern California Institute for Research and Education, and the study is coordinated by the Alzheimer's Disease Cooperative Study at the University of California, San Diego. ADNI data are disseminated by the Laboratory for Neuro Imaging at the University of Southern California.
+
+Data used in preparation of this article were obtained from the Alzheimer’s Disease Neuroimaging Initiative (ADNI) database (adni.loni.usc.edu). As such, the investigators within the ADNI contributed to the design and implementation of ADNI and/or provided data but did not participate in the analysis or writing of this report. A complete listing of ADNI investigators can be found at: [http://adni.loni.usc.edu/wp-content/uploads/how_to_apply/ADNI_Acknowledgment_List.pdf](http://adni.loni.usc.edu/wp-content/uploads/how_to_apply/ADNI_Acknowledgment_List.pdf)
+
+
+```{r,eval=FALSE,echo=FALSE}
+# run many loops to get some statistics
+rm( mxAlg )
+doRegression=sample( c( "cca", "regression", "lowRankRegression" ), 1 )
+nn = 150
+results = data.frame( matrix(nrow=nn,ncol=2) )
+colnames(results) = c("SGCCA","SiMLR")
+qqq = 1
+for ( qqq in qqq:nn ) {
+  rmarkdown::render("simlr_adni_sup2.Rmd", output_file="/tmp/temp.pdf")
+  print(paste(mxAlg,doRegression))
+  results[qqq,] = c(rrsq,ssq)
+  print( colMeans( results, na.rm=T ) )
+  if (
+    qqq > 5 ) {
+    print( t.test( results[,2],results[,1],paired=T) )
+    }
+  }
+print(paste(mxAlg,doRegression))
+# doRegression='lowRankRegression' and mxAlg='svd' are a novel combination
+mypv = paste("SiMLR-LRR > SGCCA p-value:",substr( toString(t.test( results[,2],results[,1],paired=T)$p.value),0,5))
+# mypv = "SiMLR-CCA > RGCCA p-value: 3.e-5"
+pdf("cv_results_reg_v_rgcca2.pdf",width=5,height=5)
+simdatafrm = data.frame(na.omit( results ) )
+colnames(simdatafrm) = c("SGCCA","SiMLR")
+myline = 1:200
+myline = myline/max(myline)*1.1*max(simdatafrm)
+myline = myline[ myline > (0.9*min(simdatafrm)) ]
+plot( myline, myline, type='l', lty=5,
+  main=paste('PHS prediction in ADNI (150 CV runs): \n', mypv, "" ),
+  xlab='R-squared SGCCA (mean 0.312)', ylab='R-squared SiMLR (mean 0.315)' )
+points( simdatafrm[,"SGCCA"], simdatafrm[,"SiMLR"], col='blue', pch=2 )
+wsel = simdatafrm[,"SGCCA"] > simdatafrm[,"SiMLR"]
+points( simdatafrm[wsel,"SGCCA"], simdatafrm[wsel,"SiMLR"], col='red', pch=2 )
+dev.off()
+
+```
