@@ -52,8 +52,10 @@ rgcca.glioma =
   scale = TRUE, scheme = "horst", verbose = F )
 
 C2 <- matrix(c(1,1,1,1),2,2)
-sgcca.glioma = sgcca(A[1:2], C2, c1 = c(.071,.2), ncomp = c(2, 2),
-  scheme = "centroid", scale = TRUE, verbose = FALSE)
+# sgcca.glioma = sgcca(A[1:2], C2, c1 = c(.071,.2), ncomp = c(2, 2),
+#   scheme = "centroid", scale = TRUE, verbose = FALSE)
+sgcca.glioma = rgcca(A[1:2], C2, ncomp = c(2, 2),
+  scheme = "centroid", scale = TRUE, method='sgcca', verbose = FALSE)
 
 df1 = data.frame(Loc = Loc,
   GE1 = rgcca.glioma$Y[[1]][, 1],
@@ -112,6 +114,6 @@ X_polit = as.matrix(Russett[ , c("inst", "ecks", "death",
 "demostab", "dictator")])
 A = list(X_agric, X_ind, X_polit)
 # standardization
-A = lapply(A, function(x) scale2(x, bias = TRUE))
+# A = lapply(A, function(x) scale2(x, bias = TRUE))
 # ....
 ```

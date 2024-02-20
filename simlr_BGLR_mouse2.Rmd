@@ -24,7 +24,7 @@ if ( ! exists( "constraint" ) ) constraint = 'Grassmann'
 rf<-usePkg('randomForest')
 bg<-usePkg('BGLR')
 mlFun <- randomForest
-mlFun <- lm
+# mlFun <- lm
 ```
 
 BGLR provides the example data which is 1,814 mice with 10,346 SNPs each.
@@ -47,11 +47,11 @@ traits" through "a study of the relations between sets of correlated variates."
 We display the first 200 rows of this design matrix with a heatmap.
 
 ```{r bmi}
-nms = c( "Obesity.BMI"      ,  "Obesity.BodyLength", "EndNormalBW", "GENDER"  )
+nms = c( "Obesity.BMI"      ,  "Obesity.BodyLength", "Obesity.EndNormalBW", "GENDER"  )
 numericalpheno<-data.matrix( mice.pheno[ , nms ] )
 numericalpheno[,"GENDER"] = numericalpheno[,"GENDER"] - 1
 temp = data.frame( vox = rnorm( length(train)), mice.pheno[train,nms ] )
-temp = lm( vox ~ ( Obesity.BMI  + EndNormalBW + Obesity.BodyLength ) * GENDER, data=temp )
+temp = lm( vox ~ ( Obesity.BMI  + Obesity.EndNormalBW + Obesity.BodyLength ) * GENDER, data=temp )
 mdlMat = (model.matrix( temp ))[,-1]
 snpsf = snps # quantifySNPs( snps ) # convert to frequency
 inmats = list(
@@ -136,7 +136,7 @@ myrf<-mlFun( bmi ~ . , data=straindf[,], localImp = TRUE )
 predictedBMI <- predict( myrf, newdata=stestdf )
 print( cor.test( predictedBMI, stestdf$bmi ) )
 print(paste( "Err",  mean( abs( predictedBMI-stestdf$bmi ) ) ) )
-rtemis::mplot3.xy(stestdf$bmi, predictedBMI, fit = "lm",main=paste('Predicted vs real BMI'))
+rtemis::mplot3_xy(stestdf$bmi, predictedBMI, fit = "lm",main=paste('Predicted vs real BMI'))
 importance_frame <- measure_importance( myrf )
 plot_multi_way_importance( importance_frame, size_measure = "p_value" )
 #  x_measure = "mse_increase",
@@ -173,11 +173,18 @@ message("use RGCCA to compute the same type of representation")
 library( RGCCA )
 # tau parameters below correspond to inter-battery factor analysis settings
 # https://cran.r-project.org/web/packages/RGCCA/vignettes/vignette_RGCCA.pdf
-cca.with.rgcca = sgcca( # this initializes with SVD
+# cca.with.rgcca = sgcca( # this initializes with SVD
+#  A = inmats,
+#  C = matrix(c(0, 1, 1, 0), 2, 2), # cca
+#  c1 = 1.0 - mysq,  # set to match simlr
+  # tau = c( 1, 1 ), # for rgcca only
+#  ncomp = c( nEmbed, nEmbed ), scale = TRUE, verbose = TRUE )
+cca.with.rgcca = rgcca( # this initializes with SVD
   A = inmats,
   C = matrix(c(0, 1, 1, 0), 2, 2), # cca
-  c1 = 1.0 - mysq,  # set to match simlr
+#  c1 = 1.0 - mysq,  # set to match simlr
   # tau = c( 1, 1 ), # for rgcca only
+  method='sgcca',
   ncomp = c( nEmbed, nEmbed ), scale = TRUE, verbose = TRUE )
 wsol = cca.with.rgcca
 straindf<-data.frame( bmi=numericalpheno[ train,BMINAME], G=numericalpheno[ train,"GENDER"] ,
@@ -186,7 +193,7 @@ stestdf <-data.frame( bmi=numericalpheno[-train,BMINAME], G=numericalpheno[ -tra
    snpse=as.matrix( snpsf[-train,] ) %*% as.matrix( wsol$a[[1]] ) )
 myrf<-mlFun( bmi ~ . , data=straindf[,], localImp = TRUE )
 spreddf <- predict( myrf, newdata=stestdf )
-rtemis::mplot3.xy(stestdf$bmi, spreddf, fit = "lm",main=paste('Predicted vs real BMI: SGCCA'))
+rtemis::mplot3_xy(stestdf$bmi, spreddf, fit = "lm",main=paste('Predicted vs real BMI: SGCCA'))
 print( cor.test( spreddf, stestdf$bmi ) )
 print(paste("RGCCA Err",  mean(abs(spreddf-stestdf$bmi))  ) )
 importance_frame <- measure_importance( myrf )

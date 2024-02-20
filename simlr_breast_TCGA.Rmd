@@ -1,0 +1,121 @@
+---
+title: "SiMLR vs RGCCA: Breast cancer omics data"
+output: html_document
+---
+
+## Naive test of two dimensionality reduction methods with respect to omics data prediction
+
+
+A description of the data explored here is in [the DIABLO biorxiv paper](https://www.biorxiv.org/content/10.1101/067611v2.full) section covering "Case Study 1".
+
+SiMLR produces a balanced error rate of roughly 10\%.  RGCCA yields around 17\% which
+is close to what is reported in the paper above.
+
+```{r}
+library( ANTsR )
+library( mixOmics )
+library( RGCCA )
+library( e1071 )
+library( randomForest )
+library( measures )
+### collect data
+locsee = as.integer( Sys.time() )
+print( locsee )
+set.seed( locsee )
+myml = svm
+mixAlg = 'ica'
+n = 100
+mycon = 'Grassmann'
+knn = c( n, n, n, 1 )
+nComponents = 2
+nBootStrapRuns = 10
+sp = c( 0.5, 0.75 )
+myresults = data.frame( simAcc=NA, simBER=NA, rgAcc=NA, rgBER=NA )
+# data( breast.TCGA )
+# goal is to predict subtype
+#
+# see https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6471546/
+# > names( breast.TCGA$data.train )
+# [1] "mirna"   "mrna"    "protein" "subtype"
+typTe = breast.TCGA$data.test[[3]]
+typTr = breast.TCGA$data.train[[4]]
+oneHotTr = model.matrix( lm( rnorm( nrow( breast.TCGA$data.train[[1]] ) ) ~ typTr ) )[,-1]
+nnn = round( nrow( breast.TCGA$data.train[[1]] ) * 0.95 )
+for ( it in 1:nBootStrapRuns ) {
+  # resampling/bootstrapping
+  trainData = list()
+  sss = sample( 1:nrow( breast.TCGA$data.train[[1]] ), nnn, replace = FALSE )
+  for ( k in 1:3 )
+    trainData[[k]] = breast.TCGA$data.train[[k]][sss,]
+  trainData[[4]] = oneHotTr[sss,]
+  # parameters were set s.t. a small amount of gaussian smoothing results
+  if ( ! exists( "regs" ) ) regs = regularizeSimlr( trainData, knn = knn,  sigma=c(1.5,1.5,1.5,1) )
+  # below will give a warning about number of components but ok to ignore
+  initu = initializeSimlr( trainData, nComponents, jointReduction = FALSE, uAlgorithm = mixAlg )
+  sparVals = c( sp[1], sp[1], sp[1], 0.1 )
+  sparVals2 = c( 1 - sp[2], 1 - sp[2], 1 - sp[2], 1 )
+  simresult = simlr(
+    trainData,
+    regs,
+    iterations = 100,
+    connectors = list( c( 4 ), c( 4 ), c( 4 ), c( 1:3 ) ),
+    positivities = c( "either", "either", "either", "either" ),
+    sparsenessQuantiles = sparVals,
+    initialUMatrix = initu,
+    mixAlg = mixAlg,
+    constraint = mycon,
+    energyType = 'regression',
+    optimizationStyle = 'lineSearch',
+    orthogonalize = TRUE,
+    verbose = FALSE
+    )
+  # predictions via RF
+  proj1 = trainData[[1]] %*% simresult$v[[1]]
+  proj2 = trainData[[2]] %*% simresult$v[[2]]
+  proj3 = trainData[[3]] %*% simresult$v[[3]]
+  trdf = data.frame( type = typTr[sss], proj1=proj1, proj2=proj2 ) #, proj3=proj3 )
+  mymdl = myml( type ~ . , data = trdf )
+  proj1 = breast.TCGA$data.test[[1]] %*% simresult$v[[1]]
+  proj2 = breast.TCGA$data.test[[2]] %*% simresult$v[[2]]
+  tedf = data.frame( proj1=proj1, proj2=proj2 )
+  predSimlr = predict( mymdl, newdata = tedf )
+  simlrResult = caret::confusionMatrix( typTe, predSimlr )
+  # now do RGCCA
+  myrgcca = sgcca( # this initializes with SVD
+            A = trainData,
+            C = 1 - diag( length( trainData ) ), # cca-like
+            c1 = sparVals2,  # set to roughly match simlr
+            ncomp = c( nComponents, nComponents, nComponents, 2 ),
+            scale = TRUE,
+            verbose = FALSE )
+  proj1 = trainData[[1]] %*% myrgcca$a[[1]]
+  proj2 = trainData[[2]] %*% myrgcca$a[[2]]
+  proj3 = trainData[[3]] %*% myrgcca$a[[3]]
+  trdf = data.frame( type = typTr[sss], proj1=proj1, proj2=proj2 ) #, proj3=proj3 )
+  mymdl = myml( type ~ . , data = trdf )
+  proj1 = breast.TCGA$data.test[[1]] %*% myrgcca$a[[1]]
+  proj2 = breast.TCGA$data.test[[2]] %*% myrgcca$a[[2]]
+  tedf = data.frame( proj1=proj1, proj2=proj2 ) # , proj3=proj3 )
+  predRgcca = predict( mymdl, newdata = tedf )
+  rgccaResult = caret::confusionMatrix( typTe, predRgcca )
+  myresults[it,1]=simlrResult$overall[1]
+  myresults[it,2]=measures::BER( typTe, predSimlr )
+  myresults[it,3]=rgccaResult$overall[1]
+  myresults[it,4]=measures::BER( typTe, predRgcca )
+  print( myresults[it,] )
+  }
+
+# balanced error rate
+print( t.test( myresults[,2], myresults[,4], paired=T ) )
+# overall accuracy
+print( t.test( myresults[,1], myresults[,3], paired=T ) )
+plot( myresults[,1], myresults[,1]-myresults[,3] )
+
+print( colMeans(myresults) )
+
+```
+
+
+```{r}
+knitr::kable( colMeans(myresults) )
+```
