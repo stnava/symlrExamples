@@ -95,27 +95,28 @@ nEmbed = 3
 mysq = c( 0.95, 0.5 ) # very sparse for demonstration purposes
 mixAlg = 'svd' # this is what is used by RGCCA - so we do the same thing here
 initu = initializeSimlr( inmats, nEmbed, jointReduction = T, uAlgorithm = mixAlg )
-for ( k in c(99) ) { # take best result over multiple initial starting points
-  temp = simlr(
-    inmats,
-    regs,
-    iterations = 100,
-    sparsenessQuantiles = mysq,
-    initialUMatrix = initu,
-    energyType = energyType,
-    expBeta = 0.0,
-    constraint = constraint,
-    optimizationStyle = 'mixed',
-    mixAlg = mixAlg,
-    verbose = TRUE,
-    randomSeed = k )
-  svx = predictSimlr( inmats, temp )
-  print( svx$varx )
-  if ( sum( svx$varx ) > bestVarx ) {
-    sResult = temp
-    bestVarx = sum( svx$varx )
+if ( ! exists("sResult")) {
+  for ( k in c(1:6) ) { # take best result over multiple initial starting points
+    temp = simlr(
+      inmats,
+      regs,
+      iterations = 100,
+      sparsenessQuantiles = mysq,
+      initialUMatrix = initu,
+      energyType = energyType,
+      expBeta = 0.99,
+      constraint = constraint,
+      mixAlg = mixAlg,
+      verbose = TRUE,
+      randomSeed = k )
+    svx = predictSimlr( inmats, temp )
+    print( svx$varx )
+    if ( sum( svx$varx ) > bestVarx ) {
+      sResult = temp
+      bestVarx = sum( svx$varx )
+      }
     }
-  }
+}
 svx = predictSimlr( inmats, sResult )
 
 # ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||
@@ -167,7 +168,9 @@ powerful tool that closely resembles the setup we elected for SiMLR.  We
 use a CCA design matrix and relatable sparseness parameters.  Results look
 very close to that of SiMLR.
 
-```{r rgcca}
+```{r rgcca,eval=TRUE}
+# Feb 2024 - RGCCA has changed and seems to not work as reliably in the past - at least with these settings.
+# users may try to fix this on their own - or use the containerized version associated with the paper.
 message("use RGCCA to compute the same type of representation")
 # see the RGCCA package vignette for more information on this
 library( RGCCA )
@@ -179,13 +182,15 @@ library( RGCCA )
 #  c1 = 1.0 - mysq,  # set to match simlr
   # tau = c( 1, 1 ), # for rgcca only
 #  ncomp = c( nEmbed, nEmbed ), scale = TRUE, verbose = TRUE )
-cca.with.rgcca = rgcca( # this initializes with SVD
-  A = inmats,
-  C = matrix(c(0, 1, 1, 0), 2, 2), # cca
-#  c1 = 1.0 - mysq,  # set to match simlr
-  # tau = c( 1, 1 ), # for rgcca only
-  method='sgcca',
-  ncomp = c( nEmbed, nEmbed ), scale = TRUE, verbose = TRUE )
+if ( ! exists("cca.with.rgcca"))
+  cca.with.rgcca = rgcca( # this initializes with SVD
+    A = inmats,
+    C = matrix(c(0, 1, 1, 0), 2, 2), # cca
+    sparsity = 1.0 - mysq,  # set to match simlr
+    # tau = c( 1, 1 ), # for rgcca only
+    init = "svd", # svd blew up for unknown reasons
+    method='sgcca',
+    ncomp = c( nEmbed, nEmbed ), scale = TRUE, verbose = TRUE )
 wsol = cca.with.rgcca
 straindf<-data.frame( bmi=numericalpheno[ train,BMINAME], G=numericalpheno[ train,"GENDER"] ,
    snpse=as.matrix( snpsf[train, ] ) %*% as.matrix( wsol$a[[1]] ) )
