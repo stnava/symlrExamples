@@ -91,9 +91,9 @@ obtained.  The algorithm will stop before the max iterations if it detects conve
 
 ```{r runsym}
 bestVarx = 0
-nEmbed = 3
-mysq = c( 0.95, 0.5 ) # very sparse for demonstration purposes
-mixAlg = 'svd' # this is what is used by RGCCA - so we do the same thing here
+nEmbed = 2
+mysq = c( 0.80, 0.5 ) # very sparse for demonstration purposes
+mixAlg = 'ica' 
 initu = initializeSimlr( inmats, nEmbed, jointReduction = T, uAlgorithm = mixAlg )
 if ( ! exists("sResult")) {
   for ( k in c(1:6) ) { # take best result over multiple initial starting points
@@ -117,7 +117,6 @@ if ( ! exists("sResult")) {
       }
     }
 }
-svx = predictSimlr( inmats, sResult )
 
 # ||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||<o>||
 ```
@@ -126,7 +125,6 @@ Demonstrate post-hoc descriptive statistics and prediction of BMI
 from SNPs with the selected prediction model.
 
 ```{r postsym}
-print( svx[1] )
 # layout( matrix( 1:4, nrow=1 ))
 plot( ts( sResult$totalEnergy ) )
 straindf<-data.frame( bmi=numericalpheno[ train,BMINAME] , G=numericalpheno[ train,"GENDER"],
@@ -148,7 +146,7 @@ Show LD for the selected SNPs.
 
 ```{r myLD}
 
-wvec = abs( sResult$v[[1]][,3] )
+wvec = abs( sResult$v[[1]][,ncol(sResult$v[[1]])] )
 wvecTh = quantile( wvec, 0.9995 )
 selector = wvec > wvecTh
 mySelected = rownames( sResult$v[[1]] )[ selector ]
@@ -201,8 +199,8 @@ spreddf <- predict( myrf, newdata=stestdf )
 rtemis::mplot3_xy(stestdf$bmi, spreddf, fit = "lm",main=paste('Predicted vs real BMI: SGCCA'))
 print( cor.test( spreddf, stestdf$bmi ) )
 print(paste("RGCCA Err",  mean(abs(spreddf-stestdf$bmi))  ) )
-importance_frame <- measure_importance( myrf )
-plot_multi_way_importance( importance_frame, size_measure = "p_value" )
+# importance_frame <- measure_importance( myrf )# 
+# plot_multi_way_importance( importance_frame, size_measure = "p_value" )
 # plot_multi_way_importance( importance_frame, x_measure = "node_purity_increase",
 # y_measure = "no_of_nodes", size_measure = "p_value" )
 ```
