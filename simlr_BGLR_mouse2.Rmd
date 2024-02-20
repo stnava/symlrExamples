@@ -166,7 +166,7 @@ powerful tool that closely resembles the setup we elected for SiMLR.  We
 use a CCA design matrix and relatable sparseness parameters.  Results look
 very close to that of SiMLR.
 
-```{r rgcca,eval=TRUE}
+```{r rgcca,eval=FALSE}
 # Feb 2024 - RGCCA has changed and seems to not work as reliably in the past - at least with these settings.
 # users may try to fix this on their own - or use the containerized version associated with the paper.
 message("use RGCCA to compute the same type of representation")
