@@ -18,6 +18,7 @@ devtools::install_github( "cran/r.jive" )
 devtools::install_github( 'neurodata/lol', force=TRUE )  # install lol with the vignettes
 library( r.jive ) # external package with example data for BRCA => try github if not on CRAN
 library( ANTsR )  # github/neuroconductor
+library( RGCCA )
 library( ggplot2 )  # CRAN
 library( RGCCA )  # CRAN
 library( BGLR )  # CRAN
